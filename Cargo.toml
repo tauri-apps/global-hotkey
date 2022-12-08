@@ -1,0 +1,16 @@
+[package]
+name = "global-hotkey"
+version = "0.0.0"
+description = "Global hotkeys for Desktop Applications"
+edition = "2021"
+keywords = [ "windowing", "global", "global-hotkey", "hotkey" ]
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+repository = "https://github.com/amrbashir/global-hotkey"
+documentation = "https://docs.rs/global-hotkey"
+categories = [ "gui" ]
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
