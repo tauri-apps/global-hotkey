@@ -1,6 +1,6 @@
 global_hotkey lets you register Global HotKeys for Desktop Applications.
 
-# Example
+## Example
 
 ```rs
 use global_hotkey::{GlobalHotKeyManager, hotkey::{HotKey, Modifiers, Code}};
@@ -16,7 +16,7 @@ manager.register(hotkey);
 ```
 
 
-# Processing global hotkey events
+## Processing global hotkey events
 
 You can use `global_hotkey_event_receiver` to get a reference to the `GlobalHotKeyEventReceiver`
 which you can use to listen to the hotkey pressed events.
