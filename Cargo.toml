@@ -3,14 +3,31 @@ name = "global-hotkey"
 version = "0.0.0"
 description = "Global hotkeys for Desktop Applications"
 edition = "2021"
-keywords = [ "windowing", "global", "global-hotkey", "hotkey" ]
+keywords = ["windowing", "global", "global-hotkey", "hotkey"]
 license = "Apache-2.0 OR MIT"
 readme = "README.md"
 repository = "https://github.com/amrbashir/global-hotkey"
 documentation = "https://docs.rs/global-hotkey"
-categories = [ "gui" ]
-
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+categories = ["gui"]
 
 [dependencies]
+crossbeam-channel = "0.5"
+keyboard-types = "0.6"
+once_cell = "1.16.0"
+thiserror = "1.0"
+
+[target."cfg(target_os = \"windows\")".dependencies.windows-sys]
+version = "0.42"
+features = [
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_System_SystemServices",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_Shell",
+    "Win32_UI_Input_KeyboardAndMouse",
+]
+
+
+[dev-dependencies]
+winit = "0.27"
+tao = { git = "https://github.com/tauri-apps/tao", branch = "muda" }
