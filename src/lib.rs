@@ -31,6 +31,12 @@
 //!     println!("{:?}", event);
 //! }
 //! ```
+//!
+//! # Platforms-supported:
+//!
+//! - Windows
+//! - macOS
+//! - Linux (X11 Only)
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use once_cell::sync::Lazy;

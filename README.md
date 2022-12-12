@@ -28,6 +28,11 @@ if let Ok(event) = global_hotkey_event_receiver().try_recv() {
 }
 ```
 
+## Platforms-supported:
+
+- Windows
+- macOS
+- Linux (X11 Only)
 
 ## License
 
