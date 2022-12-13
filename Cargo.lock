@@ -712,6 +712,7 @@ dependencies = [
  "thiserror",
  "windows-sys 0.42.0",
  "winit",
+ "x11-dl",
 ]
 
 [[package]]

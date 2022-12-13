@@ -27,6 +27,8 @@ features = [
     "Win32_UI_Input_KeyboardAndMouse",
 ]
 
+[target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
+x11-dl = "2.20"
 
 [dev-dependencies]
 winit = "0.27"

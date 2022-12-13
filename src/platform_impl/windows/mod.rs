@@ -119,8 +119,8 @@ impl GlobalHotKeyManager {
             Some(vk_code) => {
                 let result =
                     unsafe { RegisterHotKey(self.hwnd, hotkey.id() as _, mods, vk_code as _) };
-                if result == 0 {
-                    return Err(crate::Error::OsError(std::io::Error::last_os_error()));
+                if result == 1 {
+                    return Err(crate::Error::AlreadyRegistered);
                 }
             }
             _ => {

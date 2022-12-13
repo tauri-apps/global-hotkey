@@ -4,6 +4,8 @@
 
 use thiserror::Error;
 
+use crate::hotkey::HotKey;
+
 /// Errors returned by tray-icon.
 #[non_exhaustive]
 #[derive(Error, Debug)]
@@ -16,6 +18,8 @@ pub enum Error {
     FailedToRegister(String),
     #[error("Failed to unregister this hotkey")]
     FailedToUnRegister,
+    #[error("HotKey already registerd: {0:?}")]
+    AlreadyRegistered(HotKey),
 }
 
 /// Convenient type alias of Result type for tray-icon.
