@@ -125,7 +125,7 @@ impl GlobalHotKeyManager {
             }
             _ => {
                 return Err(crate::Error::FailedToRegister(format!(
-                    "Unable to register accelerator (unknown VKCode for this char: {}).",
+                    "Unable to register accelerator (unknown VKCode for this key: {}).",
                     hotkey.key
                 )))
             }

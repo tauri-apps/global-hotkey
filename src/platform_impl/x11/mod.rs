@@ -137,7 +137,7 @@ impl GlobalHotKeyManager {
                                 } else {
                                     let _ = tx
                                     .send(Err(crate::Error::FailedToRegister(format!(
-                                        "Unable to register accelerator (unknown VKCode for this char: {}).",
+                                        "Unable to register accelerator (unknown scancode for this key: {}).",
                                         hotkey.key
                                     ))));
                                 }
