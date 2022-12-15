@@ -127,10 +127,15 @@ impl GlobalHotKeyManager {
                                     }
 
                                     if !errored {
-                                        hotkeys.insert(
-                                            (modifiers, keycode as _),
-                                            (hotkey.id(), false),
-                                        );
+                                        if hotkeys.contains_key(&(modifiers, keycode as _)) {
+                                            let _ = tx
+                                                .send(Err(crate::Error::AlreadyRegistered(hotkey)));
+                                        } else {
+                                            hotkeys.insert(
+                                                (modifiers, keycode as _),
+                                                (hotkey.id(), false),
+                                            );
+                                        }
 
                                         let _ = tx.send(Ok(()));
                                     }

@@ -120,7 +120,7 @@ impl GlobalHotKeyManager {
                 let result =
                     unsafe { RegisterHotKey(self.hwnd, hotkey.id() as _, mods, vk_code as _) };
                 if result == 1 {
-                    return Err(crate::Error::AlreadyRegistered);
+                    return Err(crate::Error::AlreadyRegistered(hotkey));
                 }
             }
             _ => {
