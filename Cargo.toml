@@ -32,4 +32,4 @@ x11-dl = "2.20"
 
 [dev-dependencies]
 winit = "0.27"
-# tao = { git = "https://github.com/tauri-apps/tao", branch = "muda" }
+tao = { git = "https://github.com/tauri-apps/tao", branch = "muda" }
