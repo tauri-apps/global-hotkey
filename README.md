@@ -6,10 +6,10 @@ global_hotkey lets you register Global HotKeys for Desktop Applications.
 use global_hotkey::{GlobalHotKeyManager, hotkey::{HotKey, Modifiers, Code}};
 
 // initialize the hotkeys manager
-let manager = GlobalHotKeyManager::new().unwarp();
+let manager = GlobalHotKeyManager::new().unwrap();
 
 // construct the hotkey
-let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD).unwrap();
+let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD);
 
 // register it
 manager.register(hotkey);
