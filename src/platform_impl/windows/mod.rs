@@ -30,7 +30,7 @@ use windows_sys::Win32::{
     },
 };
 
-use crate::{hotkey::HotKey, GLOBAL_HOTKEY_CHANNEL};
+use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
 const GLOBAL_HOTKEY_SUBCLASS_ID: usize = 6001;
 
@@ -151,9 +151,7 @@ unsafe extern "system" fn global_hotkey_subclass_proc(
     _subclass_input_ptr: usize,
 ) -> LRESULT {
     if msg == WM_HOTKEY {
-        let _ = &GLOBAL_HOTKEY_CHANNEL
-            .0
-            .send(crate::GlobalHotKeyEvent(wparam as _));
+        GlobalHotKeyEvent::send(GlobalHotKeyEvent { id: wparam as _ });
     }
 
     DefSubclassProc(hwnd, msg, wparam, lparam)
