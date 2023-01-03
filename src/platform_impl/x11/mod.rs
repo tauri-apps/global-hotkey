@@ -8,7 +8,7 @@ use crossbeam_channel::{unbounded, Sender};
 use keyboard_types::{Code, Modifiers};
 use x11_dl::{keysym, xlib};
 
-use crate::{hotkey::HotKey, GLOBAL_HOTKEY_CHANNEL};
+use {crate::hotkey::HotKey, GlobalHotKeyEvent};
 
 enum ThreadMessage {
     RegisterHotKey(HotKey, Sender<crate::Result<()>>),
@@ -57,9 +57,7 @@ impl GlobalHotKeyManager {
                                 {
                                     match (e, *repeating) {
                                         (xlib::KeyPress, false) => {
-                                            let _ = &GLOBAL_HOTKEY_CHANNEL
-                                                .0
-                                                .send(crate::GlobalHotKeyEvent(*id));
+                                            GlobalHotKeyEvent::send(GlobalHotKeyEvent { id: *id });
                                             *repeating = true;
                                         }
                                         (xlib::KeyRelease, true) => {

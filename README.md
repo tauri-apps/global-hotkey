@@ -18,12 +18,12 @@ manager.register(hotkey);
 
 ## Processing global hotkey events
 
-You can use `global_hotkey_event_receiver` to get a reference to the `GlobalHotKeyEventReceiver`
+You can use `GlobalHotKeyEvent::receiver` to get a reference to the `GlobalHotKeyEventReceiver`
 which you can use to listen to the hotkey pressed events.
 ```rs
-use global_hotkey::global_hotkey_event_receiver;
+use global_hotkey::GlobalHotKeyEvent;
 
-if let Ok(event) = global_hotkey_event_receiver().try_recv() {
+if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
     println!("{:?}", event);
 }
 ```

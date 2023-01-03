@@ -3,9 +3,8 @@
 // SPDX-License-Identifier: MIT
 
 use global_hotkey::{
-    global_hotkey_event_receiver,
     hotkey::{Code, HotKey, Modifiers},
-    GlobalHotKeyManager,
+    GlobalHotKeyEvent, GlobalHotKeyManager,
 };
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 
@@ -22,7 +21,7 @@ fn main() {
     hotkeys_manager.register(hotkey2).unwrap();
     hotkeys_manager.register(hotkey3).unwrap();
 
-    let global_hotkey_channel = global_hotkey_event_receiver();
+    let global_hotkey_channel = GlobalHotKeyEvent::receiver();
 
     event_loop.run(move |_event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
@@ -30,7 +29,7 @@ fn main() {
         if let Ok(event) = global_hotkey_channel.try_recv() {
             println!("{:?}", event);
 
-            if hotkey2.id() == event.id() {
+            if hotkey2.id() == event.id {
                 hotkeys_manager.unregister(hotkey2).unwrap();
             }
         }

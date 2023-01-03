@@ -39,7 +39,7 @@
 //! - Linux (X11 Only)
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 
 mod counter;
 mod error;
@@ -50,26 +50,53 @@ pub use self::error::*;
 use hotkey::HotKey;
 
 /// Contains the id of the triggered [`HotKey`].
+/// Describes a global hotkey event emitted when a [`HotKey`] is pressed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct GlobalHotKeyEvent(pub u32);
-
-impl GlobalHotKeyEvent {
-    /// Returns the id contained in this event
-    pub fn id(&self) -> u32 {
-        self.0
-    }
+pub struct GlobalHotKeyEvent {
+    /// Id of the associated [`HotKey`]
+    pub id: u32,
 }
 
-/// A reciever that could be used to listen to tray events.
+/// A reciever that could be used to listen to global hotkey events.
 pub type GlobalHotKeyEventReceiver = Receiver<GlobalHotKeyEvent>;
+type GlobalHotKeyEventHandler = Box<dyn Fn(GlobalHotKeyEvent) + Send + Sync + 'static>;
 
 static GLOBAL_HOTKEY_CHANNEL: Lazy<(Sender<GlobalHotKeyEvent>, GlobalHotKeyEventReceiver)> =
     Lazy::new(unbounded);
+static GLOBAL_HOTKEY_EVENT_HANDLER: OnceCell<Option<GlobalHotKeyEventHandler>> = OnceCell::new();
 
-/// Gets a reference to the event channel's [GlobalHotKeyEventReceiver]
-/// which can be used to listen for tray events.
-pub fn global_hotkey_event_receiver<'a>() -> &'a GlobalHotKeyEventReceiver {
-    &GLOBAL_HOTKEY_CHANNEL.1
+impl GlobalHotKeyEvent {
+    /// Gets a reference to the event channel's [`GlobalHotKeyEventReceiver`]
+    /// which can be used to listen for global hotkey events.
+    ///
+    /// ## Note
+    ///
+    /// This will not receive any events if [`GlobalHotKeyEvent::set_event_handler`] has been called with a `Some` value.
+    pub fn receiver<'a>() -> &'a GlobalHotKeyEventReceiver {
+        &GLOBAL_HOTKEY_CHANNEL.1
+    }
+
+    /// Set a handler to be called for new events. Useful for implementing custom event sender.
+    ///
+    /// ## Note
+    ///
+    /// Calling this function with a `Some` value,
+    /// will not send new events to the channel associated with [`GlobalHotKeyEvent::receiver`]
+    pub fn set_event_handler<F: Fn(GlobalHotKeyEvent) + Send + Sync + 'static>(f: Option<F>) {
+        if let Some(f) = f {
+            let _ = GLOBAL_HOTKEY_EVENT_HANDLER.set(Some(Box::new(f)));
+        } else {
+            let _ = GLOBAL_HOTKEY_EVENT_HANDLER.set(None);
+        }
+    }
+
+    pub(crate) fn send(event: GlobalHotKeyEvent) {
+        if let Some(handler) = GLOBAL_HOTKEY_EVENT_HANDLER.get_or_init(|| None) {
+            handler(event);
+        } else {
+            let _ = GLOBAL_HOTKEY_CHANNEL.0.send(event);
+        }
+    }
 }
 
 pub struct GlobalHotKeyManager {
