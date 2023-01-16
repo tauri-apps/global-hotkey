@@ -145,13 +145,10 @@ impl Drop for GlobalHotKeyManager {
 }
 
 unsafe extern "C" fn hotkey_handler(
-    next_handler: EventHandlerCallRef,
+    _next_handler: EventHandlerCallRef,
     event: EventRef,
     _user_data: *mut c_void,
 ) -> OSStatus {
-    let next_handler: extern "C" fn() = std::mem::transmute(next_handler);
-    next_handler();
-
     let mut event_hotkey: EventHotKeyID = std::mem::zeroed();
 
     let result = GetEventParameter(
