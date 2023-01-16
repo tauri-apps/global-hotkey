@@ -80,6 +80,7 @@ pub struct EventTypeSpec {
     pub eventKind: UInt32,
 }
 
+#[link(name = "Carbon", kind = "framework")]
 extern "C" {
     pub fn GetEventParameter(
         inEvent: EventRef,
