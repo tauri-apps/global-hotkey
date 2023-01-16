@@ -1,5 +1,5 @@
 ---
-"global-hotkey": "patch"
+"global-hotkey": "minor"
 ---
 
 Initial Release.
