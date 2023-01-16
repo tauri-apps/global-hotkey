@@ -6,7 +6,7 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```no_run
 //! use global_hotkey::{GlobalHotKeyManager, hotkey::{HotKey, Modifiers, Code}};
 //!
 //! // initialize the hotkeys manager
@@ -23,7 +23,7 @@
 //! # Processing global hotkey events
 //!
 //! You can also listen for the menu events using [`GlobalHotKeyEvent::receiver`] to get events for the hotkey pressed events.
-//! ```
+//! ```no_run
 //! use global_hotkey::GlobalHotKeyEvent;
 //!
 //! if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
