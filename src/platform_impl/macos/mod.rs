@@ -1,12 +1,8 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    ffi::{c_int, c_void},
-};
+use std::{cell::RefCell, collections::HashMap, ffi::c_void};
 
 use keyboard_types::{Code, Modifiers};
 
-use crate::{hotkey::HotKey, GlobalHotKeyEvent, GLOBAL_HOTKEY_CHANNEL};
+use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
 use self::ffi::{
     kEventClassKeyboard, kEventHotKeyPressed, kEventParamDirectObject, noErr, typeEventHotKeyID,
@@ -18,34 +14,33 @@ use self::ffi::{
 mod ffi;
 
 pub struct GlobalHotKeyManager {
-    event_handler_ptr: *const c_void,
+    event_handler_ptr: EventHandlerRef,
     hotkeys: RefCell<HashMap<u32, HotKeyWrapper>>,
 }
 
 impl GlobalHotKeyManager {
     pub fn new() -> crate::Result<Self> {
         let event_type = EventTypeSpec {
-            // FIXME
             eventClass: kEventClassKeyboard,
             eventKind: kEventHotKeyPressed,
         };
 
         let ptr = unsafe {
-            let handler_ref: EventHandlerRef = std::mem::zeroed();
+            let mut handler_ref: EventHandlerRef = std::mem::zeroed();
 
             let result = InstallEventHandler(
                 GetApplicationEventTarget(),
-                hotkey_handler,
+                Some(hotkey_handler),
                 1,
                 &event_type,
                 std::ptr::null_mut(),
-                // FIXME: might be problematic
-                // `EventHandlerRef` is defined as:
-                // `typedef struct OpaqueEventHandlerRef*   EventHandlerRef;`
-                // and this function paramater type is defined as `EventHandlerRef *`
-                // so this means a pointer to a pointer, right?????
-                &mut handler_ref as *mut _ as *mut _,
+                &mut handler_ref,
             );
+
+            if result != noErr as _ {
+                return Err(crate::Error::OsError(std::io::Error::last_os_error()));
+            }
+
             handler_ref
         };
 
@@ -73,20 +68,37 @@ impl GlobalHotKeyManager {
         if let Some(scan_code) = key_to_scancode(hotkey.key) {
             let hotkey_id = EventHotKeyID {
                 id: hotkey.id(),
-                // FIXME
-                signature: "htrs",
+                signature: {
+                    let mut res: u32 = 0;
+                    // can't find a resource for "htrs" so we construct it manually
+                    // the construction method below is taken from https://github.com/soffes/HotKey/blob/c13662730cb5bc28de4a799854bbb018a90649bf/Sources/HotKey/HotKeysController.swift#L27
+                    // and confirmed by applying the same method to `kEventParamDragRef` which is equal to `drag` in C
+                    // and converted to `1685217639` by rust-bindgen.
+                    for c in "htrs".chars() {
+                        res = (res << 8) + c as u32;
+                    }
+                    res
+                },
             };
 
             let ptr = unsafe {
-                let hotkey_ref: EventHotKeyRef = std::mem::zeroed();
-                RegisterEventHotKey(
+                let mut hotkey_ref: EventHotKeyRef = std::mem::zeroed();
+                let result = RegisterEventHotKey(
                     scan_code,
                     mods,
                     hotkey_id,
                     GetApplicationEventTarget(),
                     0,
-                    &mut hotkey_ref as *mut _ as *mut _,
+                    &mut hotkey_ref,
                 );
+
+                if result != noErr as _ {
+                    return Err(crate::Error::FailedToRegister(format!(
+                        "Unable to register hotkey: {}",
+                        hotkey.key
+                    )));
+                }
+
                 hotkey_ref
             };
 
@@ -118,7 +130,7 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    unsafe fn unregister_ptr(&self, ptr: *const c_void) {
+    unsafe fn unregister_ptr(&self, ptr: EventHotKeyRef) {
         UnregisterEventHotKey(ptr);
     }
 }
@@ -132,30 +144,19 @@ impl Drop for GlobalHotKeyManager {
     }
 }
 
-unsafe extern "C" fn trampoline<F>(result: c_int, user_data: *mut c_void)
-where
-    F: FnMut(c_int) + 'static,
-{
-    let user_data = &mut *(user_data as *mut F);
-    user_data(result);
-}
-
 unsafe extern "C" fn hotkey_handler(
     next_handler: EventHandlerCallRef,
     event: EventRef,
-    user_data: *mut c_void,
+    _user_data: *mut c_void,
 ) -> OSStatus {
-    // NOTE: not sure about this translation
     let next_handler: extern "C" fn() = std::mem::transmute(next_handler);
     next_handler();
 
-    let event_hotkey: EventHotKeyID = std::mem::zeroed();
+    let mut event_hotkey: EventHotKeyID = std::mem::zeroed();
 
     let result = GetEventParameter(
         event,
-        // FIXME
         kEventParamDirectObject,
-        // FIXME
         typeEventHotKeyID,
         std::ptr::null_mut(),
         std::mem::size_of::<EventHotKeyID>() as _,
@@ -163,18 +164,18 @@ unsafe extern "C" fn hotkey_handler(
         &mut event_hotkey as *mut _ as *mut _,
     );
 
-    if result == noErr {
-        let _ = &GLOBAL_HOTKEY_CHANNEL
-            .0
-            .send(GlobalHotKeyEvent(event_hotkey.id));
+    if result == noErr as _ {
+        let _ = GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+            id: event_hotkey.id,
+        });
     }
 
-    noErr
+    noErr as _
 }
 
 #[derive(Clone, Copy, Debug)]
 struct HotKeyWrapper {
-    ptr: *const c_void,
+    ptr: EventHotKeyRef,
     hotkey: HotKey,
 }
 

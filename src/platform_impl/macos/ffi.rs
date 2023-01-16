@@ -3,45 +3,83 @@
 #![allow(non_snake_case)]
 #![allow(unused)]
 
-use std::ffi::{c_ulong, c_void, CStr};
+/* taken from https://github.com/wusyong/carbon-bindgen/blob/467fca5d71047050b632fbdfb41b1f14575a8499/bindings.rs */
 
-pub type EventRef = *const c_void;
-pub type OSStatus = i32;
-pub type OSType = u32;
+pub type UInt32 = ::std::os::raw::c_uint;
+pub type SInt32 = ::std::os::raw::c_int;
+pub type OSStatus = SInt32;
+pub type FourCharCode = UInt32;
+pub type OSType = FourCharCode;
+pub type ByteCount = ::std::os::raw::c_ulong;
+pub type ItemCount = ::std::os::raw::c_ulong;
+pub type OptionBits = UInt32;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct OpaqueEventRef {
+    _unused: [u8; 0],
+}
+pub type EventRef = *mut OpaqueEventRef;
 pub type EventParamName = OSType;
 pub type EventParamType = OSType;
-pub type ByteCount = c_ulong;
-pub type EventHandlerRef = *const c_void;
-pub type EventHandlerCallRef = *const c_void;
-pub type EventTargetRef = *const c_void;
-pub type EventHandlerUPP =
-    unsafe extern "C" fn(EventHandlerCallRef, EventRef, *mut c_void) -> OSStatus;
-pub type ItemCount = c_ulong;
-pub type EventHotKeyRef = *const c_void;
-pub type OptionBits = u32;
-
-// NOTE: these `&str` consts translation may be wrong
-// maybe use `const_cstr` crate to define them?
-pub const kEventParamDirectObject: &str = "----";
-pub const kEventParamDragRef: &str = "drag";
-pub const typeEventHotKeyID: &str = "hkid";
-pub const kEventClassKeyboard: &str = "keyb";
-pub const kEventHotKeyPressed: u32 = 5;
-pub const noErr: i32 = 0;
-
 #[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct OpaqueEventHandlerRef {
+    _unused: [u8; 0],
+}
+pub type EventHandlerRef = *mut OpaqueEventHandlerRef;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct OpaqueEventHandlerCallRef {
+    _unused: [u8; 0],
+}
+pub type EventHandlerCallRef = *mut OpaqueEventHandlerCallRef;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct OpaqueEventTargetRef {
+    _unused: [u8; 0],
+}
+pub type EventTargetRef = *mut OpaqueEventTargetRef;
+pub type EventHandlerProcPtr = ::std::option::Option<
+    unsafe extern "C" fn(
+        inHandlerCallRef: EventHandlerCallRef,
+        inEvent: EventRef,
+        inUserData: *mut ::std::os::raw::c_void,
+    ) -> OSStatus,
+>;
+pub type EventHandlerUPP = EventHandlerProcPtr;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct OpaqueEventHotKeyRef {
+    _unused: [u8; 0],
+}
+pub type EventHotKeyRef = *mut OpaqueEventHotKeyRef;
+
+pub type _bindgen_ty_1637 = ::std::os::raw::c_uint;
+pub const kEventParamDirectObject: _bindgen_ty_1637 = 757935405;
+pub const kEventParamDragRef: _bindgen_ty_1637 = 1685217639;
+pub type _bindgen_ty_1921 = ::std::os::raw::c_uint;
+pub const typeEventHotKeyID: _bindgen_ty_1921 = 1751869796;
+pub type _bindgen_ty_1939 = ::std::os::raw::c_uint;
+pub const kEventClassKeyboard: _bindgen_ty_1939 = 1801812322;
+pub type _bindgen_ty_1980 = ::std::os::raw::c_uint;
+pub const kEventHotKeyPressed: _bindgen_ty_1980 = 5;
+pub type _bindgen_ty_1 = ::std::os::raw::c_uint;
+pub const noErr: _bindgen_ty_1 = 0;
+
+#[repr(C, packed(2))]
+#[derive(Debug, Copy, Clone)]
 pub struct EventHotKeyID {
     pub signature: OSType,
-    pub id: u32,
+    pub id: UInt32,
 }
 
-#[repr(C)]
+#[repr(C, packed(2))]
+#[derive(Debug, Copy, Clone)]
 pub struct EventTypeSpec {
     pub eventClass: OSType,
-    pub eventKind: u32,
+    pub eventKind: UInt32,
 }
 
-#[link(name = "Carbon", kind = "framework")]
 extern "C" {
     pub fn GetEventParameter(
         inEvent: EventRef,
@@ -50,7 +88,7 @@ extern "C" {
         outActualType: *mut EventParamType,
         inBufferSize: ByteCount,
         outActualSize: *mut ByteCount,
-        outData: *mut c_void,
+        outData: *mut ::std::os::raw::c_void,
     ) -> OSStatus;
     pub fn GetApplicationEventTarget() -> EventTargetRef;
     pub fn InstallEventHandler(
@@ -58,17 +96,17 @@ extern "C" {
         inHandler: EventHandlerUPP,
         inNumTypes: ItemCount,
         inList: *const EventTypeSpec,
-        inUserData: *mut c_void,
+        inUserData: *mut ::std::os::raw::c_void,
         outRef: *mut EventHandlerRef,
     ) -> OSStatus;
     pub fn RemoveEventHandler(inHandlerRef: EventHandlerRef) -> OSStatus;
     pub fn RegisterEventHotKey(
-        inHotKeyCode: u32,
-        inHotKeyModifiers: u32,
+        inHotKeyCode: UInt32,
+        inHotKeyModifiers: UInt32,
         inHotKeyID: EventHotKeyID,
         inTarget: EventTargetRef,
         inOptions: OptionBits,
-        outRef: EventHotKeyRef,
+        outRef: *mut EventHotKeyRef,
     ) -> OSStatus;
     pub fn UnregisterEventHotKey(inHotKey: EventHotKeyRef) -> OSStatus;
 }
