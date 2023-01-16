@@ -8,7 +8,7 @@ use crossbeam_channel::{unbounded, Sender};
 use keyboard_types::{Code, Modifiers};
 use x11_dl::{keysym, xlib};
 
-use {crate::hotkey::HotKey, GlobalHotKeyEvent};
+use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
 enum ThreadMessage {
     RegisterHotKey(HotKey, Sender<crate::Result<()>>),
