@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{collections::HashMap, ptr};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    ptr,
+};
 
 use crossbeam_channel::{unbounded, Sender};
 use keyboard_types::{Code, Modifiers};
@@ -125,14 +128,13 @@ impl GlobalHotKeyManager {
                                     }
 
                                     if !errored {
-                                        if hotkeys.contains_key(&(modifiers, keycode as _)) {
+                                        if let Entry::Vacant(e) =
+                                            hotkeys.entry((modifiers, keycode as _))
+                                        {
+                                            e.insert((hotkey.id(), false));
+                                        } else {
                                             let _ = tx
                                                 .send(Err(crate::Error::AlreadyRegistered(hotkey)));
-                                        } else {
-                                            hotkeys.insert(
-                                                (modifiers, keycode as _),
-                                                (hotkey.id(), false),
-                                            );
                                         }
 
                                         let _ = tx.send(Ok(()));
