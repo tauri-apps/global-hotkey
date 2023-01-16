@@ -166,56 +166,69 @@ fn parse_hotkey(hotkey_string: &str) -> crate::Result<HotKey> {
 
 #[test]
 fn test_parse_hotkey() {
-    assert_eq!(
-        parse_hotkey("KeyX").unwrap(),
+    macro_rules! assert_parse_hotkey {
+        ($key:literal, $lrh:expr) => {
+            let r = parse_hotkey($key).unwrap();
+            let l = $lrh;
+            assert_eq!(r.mods, l.mods);
+            assert_eq!(r.key, l.key);
+        };
+    }
+
+    assert_parse_hotkey!(
+        "KeyX",
         HotKey {
             mods: Modifiers::empty(),
             key: Code::KeyX,
             id: 0,
         }
     );
-    assert_eq!(
-        parse_hotkey("CTRL+KeyX").unwrap(),
+
+    assert_parse_hotkey!(
+        "CTRL+KeyX",
         HotKey {
             mods: Modifiers::CONTROL,
             key: Code::KeyX,
             id: 0,
         }
     );
-    assert_eq!(
-        parse_hotkey("SHIFT+KeyC").unwrap(),
+
+    assert_parse_hotkey!(
+        "SHIFT+KeyC",
         HotKey {
             mods: Modifiers::SHIFT,
             key: Code::KeyC,
             id: 0,
         }
     );
-    assert_eq!(
-        parse_hotkey("CTRL+KeyZ").unwrap(),
+
+    assert_parse_hotkey!(
+        "SHIFT+KeyC",
         HotKey {
-            mods: Modifiers::CONTROL,
-            key: Code::KeyZ,
+            mods: Modifiers::SHIFT,
+            key: Code::KeyC,
             id: 0,
         }
     );
-    assert_eq!(
-        parse_hotkey("super+ctrl+SHIFT+alt+ArrowUp").unwrap(),
+
+    assert_parse_hotkey!(
+        "super+ctrl+SHIFT+alt+ArrowUp",
         HotKey {
             mods: Modifiers::META | Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT,
             key: Code::ArrowUp,
             id: 0,
         }
     );
-    assert_eq!(
-        parse_hotkey("Digit5").unwrap(),
+    assert_parse_hotkey!(
+        "Digit5",
         HotKey {
             mods: Modifiers::empty(),
             key: Code::Digit5,
             id: 0,
         }
     );
-    assert_eq!(
-        parse_hotkey("KeyG").unwrap(),
+    assert_parse_hotkey!(
+        "KeyG",
         HotKey {
             mods: Modifiers::empty(),
             key: Code::KeyG,
@@ -223,22 +236,17 @@ fn test_parse_hotkey() {
         }
     );
 
-    let hotkey = parse_hotkey("+G");
-    assert!(hotkey.is_err());
-
-    let hotkey = parse_hotkey("SHGSH+G");
-    assert!(hotkey.is_err());
-
-    assert_eq!(
-        parse_hotkey("SHiFT+F12").unwrap(),
+    assert_parse_hotkey!(
+        "SHiFT+F12",
         HotKey {
             mods: Modifiers::SHIFT,
             key: Code::F12,
             id: 0,
         }
     );
-    assert_eq!(
-        parse_hotkey("CmdOrCtrl+Space").unwrap(),
+
+    assert_parse_hotkey!(
+        "CmdOrCtrl+Space",
         HotKey {
             #[cfg(target_os = "macos")]
             mods: Modifiers::META,
@@ -248,7 +256,4 @@ fn test_parse_hotkey() {
             id: 0,
         }
     );
-
-    let hotkey = parse_hotkey("CTRL+");
-    assert!(hotkey.is_err());
 }

@@ -120,12 +120,12 @@ impl GlobalHotKeyManager {
                 let result =
                     unsafe { RegisterHotKey(self.hwnd, hotkey.id() as _, mods, vk_code as _) };
                 if result == 1 {
-                    return Err(crate::Error::AlreadyRegistered);
+                    return Err(crate::Error::AlreadyRegistered(hotkey));
                 }
             }
             _ => {
                 return Err(crate::Error::FailedToRegister(format!(
-                    "Unable to register accelerator (unknown VKCode for this char: {}).",
+                    "Unable to register hotkey (unknown VKCode for this key: {}).",
                     hotkey.key
                 )))
             }

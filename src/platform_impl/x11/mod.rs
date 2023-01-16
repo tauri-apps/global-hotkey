@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{collections::HashMap, ptr};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    ptr,
+};
 
 use crossbeam_channel::{unbounded, Sender};
 use keyboard_types::{Code, Modifiers};
 use x11_dl::{keysym, xlib};
 
-use {crate::hotkey::HotKey, GlobalHotKeyEvent};
+use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
 enum ThreadMessage {
     RegisterHotKey(HotKey, Sender<crate::Result<()>>),
@@ -125,17 +128,21 @@ impl GlobalHotKeyManager {
                                     }
 
                                     if !errored {
-                                        hotkeys.insert(
-                                            (modifiers, keycode as _),
-                                            (hotkey.id(), false),
-                                        );
+                                        if let Entry::Vacant(e) =
+                                            hotkeys.entry((modifiers, keycode as _))
+                                        {
+                                            e.insert((hotkey.id(), false));
+                                        } else {
+                                            let _ = tx
+                                                .send(Err(crate::Error::AlreadyRegistered(hotkey)));
+                                        }
 
                                         let _ = tx.send(Ok(()));
                                     }
                                 } else {
                                     let _ = tx
                                     .send(Err(crate::Error::FailedToRegister(format!(
-                                        "Unable to register accelerator (unknown VKCode for this char: {}).",
+                                        "Unable to register accelerator (unknown scancode for this key: {}).",
                                         hotkey.key
                                     ))));
                                 }

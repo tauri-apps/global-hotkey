@@ -6,14 +6,14 @@
 //!
 //! # Example
 //!
-//! ```
+//! ```no_run
 //! use global_hotkey::{GlobalHotKeyManager, hotkey::{HotKey, Modifiers, Code}};
 //!
 //! // initialize the hotkeys manager
-//! let manager = GlobalHotKeyManager::new().unwarp();
+//! let manager = GlobalHotKeyManager::new().unwrap();
 //!
 //! // construct the hotkey
-//! let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD).unwrap();
+//! let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD);
 //!
 //! // register it
 //! manager.register(hotkey);
@@ -22,12 +22,11 @@
 //!
 //! # Processing global hotkey events
 //!
-//! You can use [`global_hotkey_event_receiver`] to get a reference to the [`GlobalHotKeyEventReceiver`]
-//! which you can use to listen to the hotkey pressed events.
-//! ```
-//! use global_hotkey::global_hotkey_event_receiver;
+//! You can also listen for the menu events using [`GlobalHotKeyEvent::receiver`] to get events for the hotkey pressed events.
+//! ```no_run
+//! use global_hotkey::GlobalHotKeyEvent;
 //!
-//! if let Ok(event) = global_hotkey_event_receiver().try_recv() {
+//! if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
 //!     println!("{:?}", event);
 //! }
 //! ```
