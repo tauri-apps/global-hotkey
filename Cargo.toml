@@ -31,5 +31,5 @@ features = [
 x11-dl = "2.21"
 
 [dev-dependencies]
-winit = "0.27"
+winit = "0.28"
 tao = { git = "https://github.com/tauri-apps/tao", branch = "muda" }
