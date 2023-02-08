@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.1.1]
+
+- Update docs
+  - [6409e5d](https://www.github.com/tauri-apps/global-hotkey/commit/6409e5dd351e1cae808c0042f4507e9afad70a05) docs: update docs on 2023-02-08
+
 ## \[0.1.0]
 
 - Initial Release.
