@@ -2,7 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
+#![allow(clippy::uninlined_format_args)]
+
 //! global_hotkey lets you register Global HotKeys for Desktop Applications.
+//!
+//! ## Platforms-supported:
+//!
+//! - Windows
+//! - macOS
+//! - Linux (X11 Only)
+//!
+//! ## Platform-specific notes:
+//!
+//! - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
+//! - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
 //!
 //! # Example
 //!

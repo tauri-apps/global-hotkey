@@ -27,7 +27,7 @@ fn main() {
         *control_flow = ControlFlow::Poll;
 
         if let Ok(event) = global_hotkey_channel.try_recv() {
-            println!("{:?}", event);
+            println!("{event:?}");
 
             if hotkey2.id() == event.id {
                 hotkeys_manager.unregister(hotkey2).unwrap();
