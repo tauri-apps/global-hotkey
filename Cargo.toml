@@ -3,12 +3,12 @@ name = "global-hotkey"
 version = "0.1.2"
 description = "Global hotkeys for Desktop Applications"
 edition = "2021"
-keywords = [ "windowing", "global", "global-hotkey", "hotkey" ]
+keywords = ["windowing", "global", "global-hotkey", "hotkey"]
 license = "Apache-2.0 OR MIT"
 readme = "README.md"
 repository = "https://github.com/amrbashir/global-hotkey"
 documentation = "https://docs.rs/global-hotkey"
-categories = [ "gui" ]
+categories = ["gui"]
 
 [dependencies]
 crossbeam-channel = "0.5"
@@ -24,7 +24,7 @@ features = [
   "Win32_System_SystemServices",
   "Win32_Graphics_Gdi",
   "Win32_UI_Shell",
-  "Win32_UI_Input_KeyboardAndMouse"
+  "Win32_UI_Input_KeyboardAndMouse",
 ]
 
 [target."cfg(any(target_os = \"linux\", target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"openbsd\", target_os = \"netbsd\"))".dependencies]
@@ -33,3 +33,4 @@ x11-dl = "2.21"
 [dev-dependencies]
 winit = "0.28"
 tao = { git = "https://github.com/tauri-apps/tao", branch = "muda" }
+eframe = "0.21"
