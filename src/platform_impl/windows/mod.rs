@@ -163,7 +163,7 @@ pub fn encode_wide<S: AsRef<std::ffi::OsStr>>(string: S) -> Vec<u16> {
         .collect()
 }
 
-pub fn get_instance_handle() -> windows_sys::Win32::Foundation::HINSTANCE {
+pub fn get_instance_handle() -> windows_sys::Win32::Foundation::HMODULE {
     // Gets the instance handle by taking the address of the
     // pseudo-variable created by the microsoft linker:
     // https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483
