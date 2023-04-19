@@ -1,5 +1,10 @@
 # Changelog
 
+## \[0.2.0]
+
+- Support more variants for `HotKey::from_str` and support case-insensitive htokey.
+  - [25cbda5](https://www.github.com/tauri-apps/global-hotkey/commit/25cbda58c503b8230af00c6192e87d5ce1fc2742) feat: add more variants and case-insensitive hotkey parsing ([#19](https://www.github.com/tauri-apps/global-hotkey/pull/19)) on 2023-04-19
+
 ## \[0.1.2]
 
 - On Windows, fix registering htokeys failing all the time.
