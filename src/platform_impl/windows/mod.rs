@@ -8,19 +8,7 @@ use keyboard_types::{Code, Modifiers};
 use windows_sys::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::{
-        Input::KeyboardAndMouse::{
-            RegisterHotKey, UnregisterHotKey, VkKeyScanW, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT,
-            MOD_SHIFT, MOD_WIN, VIRTUAL_KEY, VK_APPS, VK_BACK, VK_BROWSER_BACK,
-            VK_BROWSER_FAVORITES, VK_BROWSER_FORWARD, VK_BROWSER_HOME, VK_BROWSER_REFRESH,
-            VK_BROWSER_SEARCH, VK_BROWSER_STOP, VK_CAPITAL, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE,
-            VK_F1, VK_F10, VK_F11, VK_F12, VK_F13, VK_F14, VK_F15, VK_F16, VK_F17, VK_F18, VK_F19,
-            VK_F2, VK_F20, VK_F21, VK_F22, VK_F23, VK_F24, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7,
-            VK_F8, VK_F9, VK_HELP, VK_HOME, VK_INSERT, VK_KANA, VK_LAUNCH_MAIL, VK_LEFT,
-            VK_MEDIA_NEXT_TRACK, VK_MEDIA_PLAY_PAUSE, VK_MEDIA_PREV_TRACK, VK_MEDIA_STOP, VK_NEXT,
-            VK_NONCONVERT, VK_NUMLOCK, VK_OEM_COMMA, VK_OEM_MINUS, VK_OEM_PERIOD, VK_PAUSE,
-            VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SCROLL, VK_SNAPSHOT, VK_SPACE, VK_TAB, VK_UP,
-            VK_VOLUME_DOWN, VK_VOLUME_MUTE, VK_VOLUME_UP,
-        },
+        Input::KeyboardAndMouse::*,
         Shell::{DefSubclassProc, SetWindowSubclass},
         WindowsAndMessaging::{
             CreateWindowExW, DefWindowProcW, RegisterClassW, CW_USEDEFAULT, HMENU, WM_HOTKEY,
@@ -137,7 +125,7 @@ impl GlobalHotKeyManager {
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {
         let result = unsafe { UnregisterHotKey(self.hwnd, hotkey.id() as _) };
         if result == 0 {
-            return Err(crate::Error::OsError(std::io::Error::last_os_error()));
+            return Err(crate::Error::FailedToUnRegister(hotkey));
         }
         Ok(())
     }
@@ -232,11 +220,8 @@ fn key_to_vk(key: &Code) -> Option<VIRTUAL_KEY> {
         Code::Tab => VK_TAB,
         Code::Space => VK_SPACE,
         Code::Enter => VK_RETURN,
-        Code::Pause => VK_PAUSE,
         Code::CapsLock => VK_CAPITAL,
-        Code::KanaMode => VK_KANA,
         Code::Escape => VK_ESCAPE,
-        Code::NonConvert => VK_NONCONVERT,
         Code::PageUp => VK_PRIOR,
         Code::PageDown => VK_NEXT,
         Code::End => VK_END,
@@ -248,8 +233,6 @@ fn key_to_vk(key: &Code) -> Option<VIRTUAL_KEY> {
         Code::PrintScreen => VK_SNAPSHOT,
         Code::Insert => VK_INSERT,
         Code::Delete => VK_DELETE,
-        Code::Help => VK_HELP,
-        Code::ContextMenu => VK_APPS,
         Code::F1 => VK_F1,
         Code::F2 => VK_F2,
         Code::F3 => VK_F3,
@@ -275,23 +258,27 @@ fn key_to_vk(key: &Code) -> Option<VIRTUAL_KEY> {
         Code::F23 => VK_F23,
         Code::F24 => VK_F24,
         Code::NumLock => VK_NUMLOCK,
+        Code::Numpad0 => VK_NUMPAD0,
+        Code::Numpad1 => VK_NUMPAD1,
+        Code::Numpad2 => VK_NUMPAD2,
+        Code::Numpad3 => VK_NUMPAD3,
+        Code::Numpad4 => VK_NUMPAD4,
+        Code::Numpad5 => VK_NUMPAD5,
+        Code::Numpad6 => VK_NUMPAD6,
+        Code::Numpad7 => VK_NUMPAD7,
+        Code::Numpad8 => VK_NUMPAD8,
+        Code::Numpad9 => VK_NUMPAD9,
+        Code::NumpadAdd => VK_ADD,
+        Code::NumpadDecimal => VK_DECIMAL,
+        Code::NumpadDivide => VK_DIVIDE,
+        Code::NumpadEnter => VK_RETURN,
+        Code::NumpadEqual => VK_E,
+        Code::NumpadMultiply => VK_MULTIPLY,
+        Code::NumpadSubtract => VK_SUBTRACT,
         Code::ScrollLock => VK_SCROLL,
-        Code::BrowserBack => VK_BROWSER_BACK,
-        Code::BrowserForward => VK_BROWSER_FORWARD,
-        Code::BrowserRefresh => VK_BROWSER_REFRESH,
-        Code::BrowserStop => VK_BROWSER_STOP,
-        Code::BrowserSearch => VK_BROWSER_SEARCH,
-        Code::BrowserFavorites => VK_BROWSER_FAVORITES,
-        Code::BrowserHome => VK_BROWSER_HOME,
-        Code::AudioVolumeMute => VK_VOLUME_MUTE,
         Code::AudioVolumeDown => VK_VOLUME_DOWN,
         Code::AudioVolumeUp => VK_VOLUME_UP,
-        Code::MediaTrackNext => VK_MEDIA_NEXT_TRACK,
-        Code::MediaTrackPrevious => VK_MEDIA_PREV_TRACK,
-        Code::MediaStop => VK_MEDIA_STOP,
-        Code::MediaPlayPause => VK_MEDIA_PLAY_PAUSE,
-        Code::LaunchMail => VK_LAUNCH_MAIL,
-        Code::Convert => VK_INSERT,
+        Code::AudioVolumeMute => VK_VOLUME_MUTE,
         _ => return None,
     })
 }
