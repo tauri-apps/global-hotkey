@@ -198,7 +198,7 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) {
 
                                 let _ = tx.send(Ok(()));
                             } else {
-                                let _ = tx.send(Err(crate::Error::FailedToUnRegister));
+                                let _ = tx.send(Err(crate::Error::FailedToUnRegister(hotkey)));
                             }
                         }
                         ThreadMessage::DropThread => {
@@ -260,7 +260,6 @@ fn keycode_to_x11_scancode(key: Code) -> Option<u32> {
         Code::Digit8 => '8' as u32,
         Code::Digit9 => '9' as u32,
         Code::Equal => keysym::XK_equal,
-        Code::IntlBackslash => keysym::XK_backslash,
         Code::Minus => keysym::XK_minus,
         Code::Period => keysym::XK_period,
         Code::Quote => keysym::XK_leftsinglequotemark,
@@ -299,13 +298,10 @@ fn keycode_to_x11_scancode(key: Code) -> Option<u32> {
         Code::Escape => keysym::XK_Escape,
         Code::PrintScreen => keysym::XK_Print,
         Code::ScrollLock => keysym::XK_Scroll_Lock,
-        Code::Pause => keysym::XF86XK_AudioPlay,
-        Code::MediaStop => keysym::XF86XK_AudioStop,
-        Code::MediaTrackNext => keysym::XF86XK_AudioNext,
-        Code::MediaTrackPrevious => keysym::XF86XK_AudioPrev,
         Code::AudioVolumeDown => keysym::XF86XK_AudioLowerVolume,
         Code::AudioVolumeMute => keysym::XF86XK_AudioMute,
         Code::AudioVolumeUp => keysym::XF86XK_AudioRaiseVolume,
+        Code::NumLock => keysym::XK_F1,
         Code::F1 => keysym::XK_F1,
         Code::F2 => keysym::XK_F2,
         Code::F3 => keysym::XK_F3,

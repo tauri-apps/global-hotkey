@@ -84,84 +84,188 @@ impl FromStr for HotKey {
     }
 }
 
-fn parse_hotkey(hotkey_string: &str) -> crate::Result<HotKey> {
+fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
+    let tokens = hotkey.split('+').collect::<Vec<&str>>();
+
     let mut mods = Modifiers::empty();
-    let mut key = Code::Unidentified;
+    let mut key = None;
 
-    let mut split = hotkey_string.split('+');
-    let len = split.clone().count();
-    let parse_key = |token: &str| -> crate::Result<Code> {
-        if let Ok(code) = Code::from_str(token) {
-            match code {
-                Code::Unidentified => Err(crate::Error::HotKeyParseError(format!(
-                    "Couldn't identify \"{}\" as a valid `Code`",
-                    token
-                ))),
-                _ => Ok(code),
-            }
-        } else {
-            Err(crate::Error::HotKeyParseError(format!(
-                "Couldn't identify \"{}\" as a valid `Code`",
-                token
-            )))
+    match tokens.len() {
+        // single key hotkey
+        1 => {
+            key = Some(parse_key(tokens[0])?);
         }
-    };
+        // modifiers and key comobo hotkey
+        _ => {
+            for raw in tokens {
+                let token = raw.trim();
 
-    if len == 1 {
-        let token = split.next().unwrap();
-        key = parse_key(token)?;
-    } else {
-        for raw in split {
-            let token = raw.trim().to_string();
-            if token.is_empty() {
-                return Err(crate::Error::HotKeyParseError(
-                    "Unexpected empty token while parsing hotkey".into(),
-                ));
-            }
+                if token.is_empty() {
+                    return Err(crate::Error::EmptyHotKeyToken(hotkey.to_string()));
+                }
 
-            if key != Code::Unidentified {
-                // at this point we already parsed the modifiers and found a main key but
-                // the function received more then one main key or it is not in the right order
-                // examples:
-                // 1. "Ctrl+Shift+C+A" => only one main key should be allowd.
-                // 2. "Ctrl+C+Shift" => wrong order
-                return Err(crate::Error::HotKeyParseError(format!(
-                    "Unexpected hotkey string format: \"{}\"",
-                    hotkey_string
-                )));
-            }
+                if key.is_some() {
+                    // At this point we have parsed the modifiers and a main key, so by reaching
+                    // this code, the function either received more than one main key or
+                    //  the hotkey is not in the right order
+                    // examples:
+                    // 1. "Ctrl+Shift+C+A" => only one main key should be allowd.
+                    // 2. "Ctrl+C+Shift" => wrong order
+                    return Err(crate::Error::UnexpectedHotKeyFormat(hotkey.to_string()));
+                }
 
-            match token.to_uppercase().as_str() {
-                "OPTION" | "ALT" => {
-                    mods.set(Modifiers::ALT, true);
-                }
-                "CONTROL" | "CTRL" => {
-                    mods.set(Modifiers::CONTROL, true);
-                }
-                "COMMAND" | "CMD" | "SUPER" => {
-                    mods.set(Modifiers::META, true);
-                }
-                "SHIFT" => {
-                    mods.set(Modifiers::SHIFT, true);
-                }
-                "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
-                    #[cfg(target_os = "macos")]
-                    mods.set(Modifiers::META, true);
-                    #[cfg(not(target_os = "macos"))]
-                    mods.set(Modifiers::CONTROL, true);
-                }
-                _ => {
-                    key = parse_key(token.as_str())?;
+                match token.to_uppercase().as_str() {
+                    "OPTION" | "ALT" => {
+                        mods.set(Modifiers::ALT, true);
+                    }
+                    "CONTROL" | "CTRL" => {
+                        mods.set(Modifiers::CONTROL, true);
+                    }
+                    "COMMAND" | "CMD" | "SUPER" => {
+                        mods.set(Modifiers::META, true);
+                    }
+                    "SHIFT" => {
+                        mods.set(Modifiers::SHIFT, true);
+                    }
+                    "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
+                        #[cfg(target_os = "macos")]
+                        mods.set(Modifiers::META, true);
+                        #[cfg(not(target_os = "macos"))]
+                        mods.set(Modifiers::CONTROL, true);
+                    }
+                    _ => {
+                        key = Some(parse_key(token)?);
+                    }
                 }
             }
         }
     }
 
     Ok(HotKey {
-        key,
+        // safe to unwrap, will always be some
+        // as we made sure to return an error earlier
+        key: key.unwrap(),
         mods,
         id: COUNTER.next(),
     })
+}
+
+fn parse_key(key: &str) -> crate::Result<Code> {
+    use Code::*;
+    match key.to_uppercase().as_str() {
+        "BACKQUOTE" | "`" => Ok(Backquote),
+        "BACKSLASH" | "\\" => Ok(Backslash),
+        "BRACKETLEFT" | "[" => Ok(BracketLeft),
+        "BRACKETRIGHT" | "]" => Ok(BracketRight),
+        "COMMA" | "," => Ok(Comma),
+        "DIGIT0" | "0" => Ok(Digit0),
+        "DIGIT1" | "1" => Ok(Digit1),
+        "DIGIT2" | "2" => Ok(Digit2),
+        "DIGIT3" | "3" => Ok(Digit3),
+        "DIGIT4" | "4" => Ok(Digit4),
+        "DIGIT5" | "5" => Ok(Digit5),
+        "DIGIT6" | "6" => Ok(Digit6),
+        "DIGIT7" | "7" => Ok(Digit7),
+        "DIGIT8" | "8" => Ok(Digit8),
+        "DIGIT9" | "9" => Ok(Digit9),
+        "EQUAL" | "=" => Ok(Equal),
+        "KEYA" | "A" => Ok(KeyA),
+        "KEYB" | "B" => Ok(KeyB),
+        "KEYC" | "C" => Ok(KeyC),
+        "KEYD" | "D" => Ok(KeyD),
+        "KEYE" | "E" => Ok(KeyE),
+        "KEYF" | "F" => Ok(KeyF),
+        "KEYG" | "G" => Ok(KeyG),
+        "KEYH" | "H" => Ok(KeyH),
+        "KEYI" | "I" => Ok(KeyI),
+        "KEYJ" | "J" => Ok(KeyJ),
+        "KEYK" | "K" => Ok(KeyK),
+        "KEYL" | "L" => Ok(KeyL),
+        "KEYM" | "M" => Ok(KeyM),
+        "KEYN" | "N" => Ok(KeyN),
+        "KEYO" | "O" => Ok(KeyO),
+        "KEYP" | "P" => Ok(KeyP),
+        "KEYQ" | "Q" => Ok(KeyQ),
+        "KEYR" | "R" => Ok(KeyR),
+        "KEYS" | "S" => Ok(KeyS),
+        "KEYT" | "T" => Ok(KeyT),
+        "KEYU" | "U" => Ok(KeyU),
+        "KEYV" | "V" => Ok(KeyV),
+        "KEYW" | "W" => Ok(KeyW),
+        "KEYX" | "X" => Ok(KeyX),
+        "KEYY" | "Y" => Ok(KeyY),
+        "KEYZ" | "Z" => Ok(KeyZ),
+        "MINUS" | "-" => Ok(Minus),
+        "PERIOD" | "." => Ok(Period),
+        "QUOTE" | "'" => Ok(Quote),
+        "SEMICOLON" | ";" => Ok(Semicolon),
+        "SLASH" | "/" => Ok(Slash),
+        "BACKSPACE" => Ok(Backspace),
+        "CAPSLOCK" => Ok(CapsLock),
+        "ENTER" => Ok(Enter),
+        "SPACE" => Ok(Space),
+        "TAB" => Ok(Tab),
+        "DELETE" => Ok(Delete),
+        "END" => Ok(End),
+        "HOME" => Ok(Home),
+        "INSERT" => Ok(Insert),
+        "PAGEDOWN" => Ok(PageDown),
+        "PAGEUP" => Ok(PageUp),
+        "PRINTSCREEN" => Ok(PrintScreen),
+        "SCROLLLOCK" => Ok(ScrollLock),
+        "ARROWDOWN" | "DOWN" => Ok(ArrowDown),
+        "ARROWLEFT" | "LEFT" => Ok(ArrowLeft),
+        "ARROWRIGHT" | "RIGHT" => Ok(ArrowRight),
+        "ARROWUP" | "UP" => Ok(ArrowUp),
+        "NUMLOCK" => Ok(NumLock),
+        "NUMPAD0" | "NUM0" => Ok(Numpad0),
+        "NUMPAD1" | "NUM1" => Ok(Numpad1),
+        "NUMPAD2" | "NUM2" => Ok(Numpad2),
+        "NUMPAD3" | "NUM3" => Ok(Numpad3),
+        "NUMPAD4" | "NUM4" => Ok(Numpad4),
+        "NUMPAD5" | "NUM5" => Ok(Numpad5),
+        "NUMPAD6" | "NUM6" => Ok(Numpad6),
+        "NUMPAD7" | "NUM7" => Ok(Numpad7),
+        "NUMPAD8" | "NUM8" => Ok(Numpad8),
+        "NUMPAD9" | "NUM9" => Ok(Numpad9),
+        "NUMPADADD" | "NUMADD" | "NUMPADPLUS" | "NUMPLUS" => Ok(NumpadAdd),
+        "NUMPADDECIMAL" | "NUMDECIMAL" => Ok(NumpadDecimal),
+        "NUMPADDIVIDE" | "NUMDIVIDE" => Ok(NumpadDivide),
+        "NUMPADENTER" | "NUMENTER" => Ok(NumpadEnter),
+        "NUMPADEQUAL" | "NUMEQUAL" => Ok(NumpadEqual),
+        "NUMPADMULTIPLY" | "NUMMULTIPLY" => Ok(NumpadMultiply),
+        "NUMPADSUBTRACT" | "NUMSUBTRACT" => Ok(NumpadSubtract),
+        "ESCAPE" | "ESC" => Ok(Escape),
+        "F1" => Ok(F1),
+        "F2" => Ok(F2),
+        "F3" => Ok(F3),
+        "F4" => Ok(F4),
+        "F5" => Ok(F5),
+        "F6" => Ok(F6),
+        "F7" => Ok(F7),
+        "F8" => Ok(F8),
+        "F9" => Ok(F9),
+        "F10" => Ok(F10),
+        "F11" => Ok(F11),
+        "F12" => Ok(F12),
+        "AUDIOVOLUMEDOWN" | "VOLUMEDOWN" => Ok(AudioVolumeDown),
+        "AUDIOVOLUMEUP" | "VOLUMEUP" => Ok(AudioVolumeUp),
+        "AUDIOVOLUMEMUTE" | "VOLUMEMUTE" => Ok(AudioVolumeMute),
+        "F13" => Ok(F13),
+        "F14" => Ok(F14),
+        "F15" => Ok(F15),
+        "F16" => Ok(F16),
+        "F17" => Ok(F17),
+        "F18" => Ok(F18),
+        "F19" => Ok(F19),
+        "F20" => Ok(F20),
+        "F21" => Ok(F21),
+        "F22" => Ok(F22),
+        "F23" => Ok(F23),
+        "F24" => Ok(F24),
+
+        _ => Err(crate::Error::UnrecognizedHotKeyCode(key.to_string())),
+    }
 }
 
 #[test]

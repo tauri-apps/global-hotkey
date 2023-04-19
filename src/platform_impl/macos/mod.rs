@@ -116,7 +116,7 @@ impl GlobalHotKeyManager {
 
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {
         if let Some(hotkeywrapper) = self.hotkeys.borrow_mut().remove(&hotkey.id()) {
-            unsafe { self.unregister_ptr(hotkeywrapper.ptr) };
+            unsafe { self.unregister_hotkey_ptr(hotkeywrapper.ptr, hotkey) }?;
         }
 
         Ok(())
@@ -130,8 +130,16 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    unsafe fn unregister_ptr(&self, ptr: EventHotKeyRef) {
-        UnregisterEventHotKey(ptr);
+    unsafe fn unregister_hotkey_ptr(
+        &self,
+        ptr: EventHotKeyRef,
+        hotkey: HotKey,
+    ) -> crate::Result<()> {
+        if UnregisterEventHotKey(ptr) != noErr as _ {
+            return Err(crate::Error::FailedToUnRegister(hotkey));
+        }
+
+        Ok(())
     }
 }
 
@@ -230,21 +238,14 @@ pub fn key_to_scancode(code: Code) -> Option<u32> {
         Code::Backquote => Some(0x32),
         Code::Backspace => Some(0x33),
         Code::Escape => Some(0x35),
-        Code::MetaRight => Some(0x36),
-        Code::MetaLeft => Some(0x37),
-        Code::ShiftLeft => Some(0x38),
-        Code::AltLeft => Some(0x3a),
-        Code::ControlLeft => Some(0x3b),
-        Code::ShiftRight => Some(0x3c),
-        Code::AltRight => Some(0x3d),
-        Code::ControlRight => Some(0x3e),
         Code::F17 => Some(0x40),
         Code::NumpadDecimal => Some(0x41),
         Code::NumpadMultiply => Some(0x43),
         Code::NumpadAdd => Some(0x45),
         Code::NumLock => Some(0x47),
-        Code::AudioVolumeUp => Some(0x49),
-        Code::AudioVolumeDown => Some(0x4a),
+        Code::AudioVolumeUp => Some(0x48),
+        Code::AudioVolumeDown => Some(0x49),
+        Code::AudioVolumeMute => Some(0x4a),
         Code::NumpadDivide => Some(0x4b),
         Code::NumpadEnter => Some(0x4c),
         Code::NumpadSubtract => Some(0x4e),
@@ -262,7 +263,6 @@ pub fn key_to_scancode(code: Code) -> Option<u32> {
         Code::F20 => Some(0x5a),
         Code::Numpad8 => Some(0x5b),
         Code::Numpad9 => Some(0x5c),
-        Code::IntlYen => Some(0x5d),
         Code::F5 => Some(0x60),
         Code::F6 => Some(0x61),
         Code::F7 => Some(0x62),
@@ -289,6 +289,8 @@ pub fn key_to_scancode(code: Code) -> Option<u32> {
         Code::ArrowRight => Some(0x7c),
         Code::ArrowDown => Some(0x7d),
         Code::ArrowUp => Some(0x7e),
+        Code::CapsLock => Some(0x39),
+        Code::PrintScreen => Some(0x46),
         _ => None,
     }
 }
