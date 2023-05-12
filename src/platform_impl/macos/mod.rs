@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, ffi::c_void};
+use std::{collections::HashMap, ffi::c_void, sync::Mutex};
 
 use keyboard_types::{Code, Modifiers};
 
@@ -15,8 +15,11 @@ mod ffi;
 
 pub struct GlobalHotKeyManager {
     event_handler_ptr: EventHandlerRef,
-    hotkeys: RefCell<HashMap<u32, HotKeyWrapper>>,
+    hotkeys: Mutex<HashMap<u32, HotKeyWrapper>>,
 }
+
+unsafe impl Send for GlobalHotKeyManager {}
+unsafe impl Sync for GlobalHotKeyManager {}
 
 impl GlobalHotKeyManager {
     pub fn new() -> crate::Result<Self> {
@@ -46,7 +49,7 @@ impl GlobalHotKeyManager {
 
         Ok(Self {
             event_handler_ptr: ptr,
-            hotkeys: RefCell::new(HashMap::new()),
+            hotkeys: Mutex::new(HashMap::new()),
         })
     }
 
@@ -103,7 +106,8 @@ impl GlobalHotKeyManager {
             };
 
             self.hotkeys
-                .borrow_mut()
+                .lock()
+                .unwrap()
                 .insert(hotkey.id(), HotKeyWrapper { ptr, hotkey });
             Ok(())
         } else {
@@ -115,7 +119,7 @@ impl GlobalHotKeyManager {
     }
 
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {
-        if let Some(hotkeywrapper) = self.hotkeys.borrow_mut().remove(&hotkey.id()) {
+        if let Some(hotkeywrapper) = self.hotkeys.lock().unwrap().remove(&hotkey.id()) {
             unsafe { self.unregister_hotkey_ptr(hotkeywrapper.ptr, hotkey) }?;
         }
 
@@ -123,7 +127,7 @@ impl GlobalHotKeyManager {
     }
 
     pub fn unregister_all(&self) -> crate::Result<()> {
-        let hotkeys = self.hotkeys.borrow().clone();
+        let hotkeys = self.hotkeys.lock().unwrap().clone();
         for (_, hotkeywrapper) in hotkeys {
             self.unregister(hotkeywrapper.hotkey)?;
         }
