@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.2.1]
+
+- [`b503530`](https://www.github.com/tauri-apps/global-hotkey/commit/b503530eb49a7fe8da3e49080e3f72f82a70b7a2)([#20](https://www.github.com/tauri-apps/global-hotkey/pull/20)) Make `GlobalHotKeyManager` Send + Sync on macOS.
+
 ## \[0.2.0]
 
 - Support more variants for `HotKey::from_str` and support case-insensitive htokey.
