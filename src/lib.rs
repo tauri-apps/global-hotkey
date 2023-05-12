@@ -144,3 +144,14 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 }
+#[cfg(test)]
+mod tests {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+
+    #[test]
+    fn is_send_sync() {
+        assert_send::<super::GlobalHotKeyManager>();
+        assert_sync::<super::GlobalHotKeyManager>();
+    }
+}
