@@ -33,4 +33,4 @@ x11-dl = "2.21"
 [dev-dependencies]
 winit = "0.28"
 tao = { git = "https://github.com/tauri-apps/tao", branch = "muda" }
-eframe = "0.21"
+eframe = "0.22"
