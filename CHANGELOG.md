@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.2.2]
+
+- [`bbd3ffb`](https://www.github.com/tauri-apps/global-hotkey/commit/bbd3ffbea2a76eaae7cd344a019a942456f94a26)([#23](https://www.github.com/tauri-apps/global-hotkey/pull/23)) Generate a hash-based id for hotkeys. Previously each hotkey had a unique id which is not necessary given that only one hotkey with the same combination can be used at a time.
+
 ## \[0.2.1]
 
 - [`b503530`](https://www.github.com/tauri-apps/global-hotkey/commit/b503530eb49a7fe8da3e49080e3f72f82a70b7a2)([#20](https://www.github.com/tauri-apps/global-hotkey/pull/20)) Make `GlobalHotKeyManager` Send + Sync on macOS.
