@@ -53,7 +53,6 @@
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use once_cell::sync::{Lazy, OnceCell};
 
-mod counter;
 mod error;
 pub mod hotkey;
 mod platform_impl;

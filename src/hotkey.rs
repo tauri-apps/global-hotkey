@@ -30,10 +30,6 @@
 pub use keyboard_types::{Code, Modifiers};
 use std::{borrow::Borrow, hash::Hash, str::FromStr};
 
-use crate::counter::Counter;
-
-static COUNTER: Counter = Counter::new();
-
 /// A keyboard shortcut that consists of an optional combination
 /// of modifier keys (provided by [`Modifiers`](crate::hotkey::Modifiers)) and
 /// one key ([`Code`](crate::hotkey::Code)).
@@ -46,16 +42,41 @@ pub struct HotKey {
 
 impl HotKey {
     /// Creates a new hotkey to define keyboard shortcuts throughout your application.
-    /// Only [`Modifiers::ALT`], [`Modifiers::SHIFT`], [`Modifiers::CONTROL`], and [`Modifiers::META`]/[`Modifiers::SUPER`]
+    /// Only [`Modifiers::ALT`], [`Modifiers::SHIFT`], [`Modifiers::CONTROL`], and [`Modifiers::SUPER`]
     pub fn new(mods: Option<Modifiers>, key: Code) -> Self {
-        Self {
-            mods: mods.unwrap_or_else(Modifiers::empty),
-            key,
-            id: COUNTER.next(),
+        let mut mods = mods.unwrap_or_else(Modifiers::empty);
+        if mods.contains(Modifiers::META) {
+            mods.remove(Modifiers::META);
+            mods.insert(Modifiers::SUPER);
         }
+        let mut hotkey = Self { mods, key, id: 0 };
+        hotkey.generate_hash();
+        hotkey
+    }
+
+    fn generate_hash(&mut self) {
+        let mut str = String::new();
+        if self.mods.contains(Modifiers::SHIFT) {
+            str.push_str("shift+")
+        }
+        if self.mods.contains(Modifiers::CONTROL) {
+            str.push_str("control+")
+        }
+        if self.mods.contains(Modifiers::ALT) {
+            str.push_str("alt+")
+        }
+        if self.mods.contains(Modifiers::SUPER) {
+            str.push_str("super+")
+        }
+        str.push_str(&self.key.to_string());
+
+        let mut s = std::collections::hash_map::DefaultHasher::new();
+        str.hash(&mut s);
+        self.id = std::hash::Hasher::finish(&s) as u32;
     }
 
     /// Returns the id associated with this HotKey
+    /// which is a hash of a string representing modifiers and key within this HotKey
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -63,11 +84,7 @@ impl HotKey {
     /// Returns `true` if this [`Code`] and [`Modifiers`] matches this `hotkey`.
     pub fn matches(&self, modifiers: impl Borrow<Modifiers>, key: impl Borrow<Code>) -> bool {
         // Should be a const but const bit_or doesn't work here.
-        let base_mods = Modifiers::SHIFT
-            | Modifiers::CONTROL
-            | Modifiers::ALT
-            | Modifiers::META
-            | Modifiers::SUPER;
+        let base_mods = Modifiers::SHIFT | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SUPER;
         let modifiers = modifiers.borrow();
         let key = key.borrow();
         self.mods == *modifiers & base_mods && self.key == *key
@@ -122,14 +139,14 @@ fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
                         mods.set(Modifiers::CONTROL, true);
                     }
                     "COMMAND" | "CMD" | "SUPER" => {
-                        mods.set(Modifiers::META, true);
+                        mods.set(Modifiers::SUPER, true);
                     }
                     "SHIFT" => {
                         mods.set(Modifiers::SHIFT, true);
                     }
                     "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
                         #[cfg(target_os = "macos")]
-                        mods.set(Modifiers::META, true);
+                        mods.set(Modifiers::SUPER, true);
                         #[cfg(not(target_os = "macos"))]
                         mods.set(Modifiers::CONTROL, true);
                     }
@@ -141,13 +158,7 @@ fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
         }
     }
 
-    Ok(HotKey {
-        // safe to unwrap, will always be some
-        // as we made sure to return an error earlier
-        key: key.unwrap(),
-        mods,
-        id: COUNTER.next(),
-    })
+    Ok(HotKey::new(Some(mods), key.unwrap()))
 }
 
 fn parse_key(key: &str) -> crate::Result<Code> {
@@ -318,7 +329,7 @@ fn test_parse_hotkey() {
     assert_parse_hotkey!(
         "super+ctrl+SHIFT+alt+ArrowUp",
         HotKey {
-            mods: Modifiers::META | Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT,
+            mods: Modifiers::SUPER | Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT,
             key: Code::ArrowUp,
             id: 0,
         }
@@ -353,11 +364,30 @@ fn test_parse_hotkey() {
         "CmdOrCtrl+Space",
         HotKey {
             #[cfg(target_os = "macos")]
-            mods: Modifiers::META,
+            mods: Modifiers::SUPER,
             #[cfg(not(target_os = "macos"))]
             mods: Modifiers::CONTROL,
             key: Code::Space,
             id: 0,
         }
+    );
+}
+
+#[test]
+fn test_equality() {
+    let h1 = parse_hotkey("Shift+KeyR").unwrap();
+    let h2 = parse_hotkey("Shift+KeyR").unwrap();
+    let h3 = HotKey::new(Some(Modifiers::SHIFT), Code::KeyR);
+    let h4 = parse_hotkey("Alt+KeyR").unwrap();
+    let h5 = parse_hotkey("Alt+KeyR").unwrap();
+    let h6 = parse_hotkey("KeyR").unwrap();
+
+    assert!(h1 == h2 && h2 == h3 && h3 != h4 && h4 == h5 && h5 != h6);
+    assert!(
+        h1.id() == h2.id()
+            && h2.id() == h3.id()
+            && h3.id() != h4.id()
+            && h4.id() == h5.id()
+            && h5.id() != h6.id()
     );
 }
