@@ -10,7 +10,7 @@ Use the following format:
 
 ```md
 ---
-"muda": patch
+"global-hotkey": patch
 ---
 
 Change summary goes here
