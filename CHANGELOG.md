@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.2.3]
+
+- [`589ecd9`](https://www.github.com/tauri-apps/global-hotkey/commit/589ecd9afd79aab93b25b357b4c70afdf69f9f6d)([#25](https://www.github.com/tauri-apps/global-hotkey/pull/25)) Fix `GlobalHotKeyManager::unregister_all` actually registering the hotkeys instead of unregistering.
+
 ## \[0.2.2]
 
 - [`bbd3ffb`](https://www.github.com/tauri-apps/global-hotkey/commit/bbd3ffbea2a76eaae7cd344a019a942456f94a26)([#23](https://www.github.com/tauri-apps/global-hotkey/pull/23)) Generate a hash-based id for hotkeys. Previously each hotkey had a unique id which is not necessary given that only one hotkey with the same combination can be used at a time.
