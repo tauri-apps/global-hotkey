@@ -64,7 +64,7 @@ use hotkey::HotKey;
 /// Describes a global hotkey event emitted when a [`HotKey`] is pressed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GlobalHotKeyEvent {
-    /// Id of the associated [`HotKey`]
+    /// Id of the associated [`HotKey`].
     pub id: u32,
 }
 
@@ -77,6 +77,11 @@ static GLOBAL_HOTKEY_CHANNEL: Lazy<(Sender<GlobalHotKeyEvent>, GlobalHotKeyEvent
 static GLOBAL_HOTKEY_EVENT_HANDLER: OnceCell<Option<GlobalHotKeyEventHandler>> = OnceCell::new();
 
 impl GlobalHotKeyEvent {
+    /// Returns the id of the associated [`HotKey`].
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
     /// Gets a reference to the event channel's [`GlobalHotKeyEventReceiver`]
     /// which can be used to listen for global hotkey events.
     ///

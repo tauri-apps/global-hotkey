@@ -75,13 +75,13 @@ impl HotKey {
         self.id = std::hash::Hasher::finish(&s) as u32;
     }
 
-    /// Returns the id associated with this HotKey
-    /// which is a hash of a string representing modifiers and key within this HotKey
+    /// Returns the id associated with this hotKey
+    /// which is a hash of a string representing modifiers and key within this hotKey
     pub fn id(&self) -> u32 {
         self.id
     }
 
-    /// Returns `true` if this [`Code`] and [`Modifiers`] matches this `hotkey`.
+    /// Returns `true` if this [`Code`] and [`Modifiers`] matches this hotkey.
     pub fn matches(&self, modifiers: impl Borrow<Modifiers>, key: impl Borrow<Code>) -> bool {
         // Should be a const but const bit_or doesn't work here.
         let base_mods = Modifiers::SHIFT | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SUPER;
