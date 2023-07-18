@@ -101,6 +101,22 @@ impl FromStr for HotKey {
     }
 }
 
+impl TryFrom<&str> for HotKey {
+    type Error = crate::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        parse_hotkey(value)
+    }
+}
+
+impl TryFrom<String> for HotKey {
+    type Error = crate::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        parse_hotkey(&value)
+    }
+}
+
 fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
     let tokens = hotkey.split('+').collect::<Vec<&str>>();
 
