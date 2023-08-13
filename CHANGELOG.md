@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.2.4]
+
+- [`b0975f9`](https://www.github.com/tauri-apps/global-hotkey/commit/b0975f9983aa023df3cd72bbd8d3158165e9f6eb) Export `CMD_OR_CTRL` const.
+- [`dc9e619`](https://www.github.com/tauri-apps/global-hotkey/commit/dc9e6197362164ef6b8aae90df41a6a2b459f5fb) Add `GlobalHotKeyEvent::id` method.
+- [`b960609`](https://www.github.com/tauri-apps/global-hotkey/commit/b96060952daf8959939f07c968b8bd58e33f4abd) Impl `TryFrom<&str>` and `TryFrom<String>` for `HotKey`.
+
 ## \[0.2.3]
 
 - [`589ecd9`](https://www.github.com/tauri-apps/global-hotkey/commit/589ecd9afd79aab93b25b357b4c70afdf69f9f6d)([#25](https://www.github.com/tauri-apps/global-hotkey/pull/25)) Fix `GlobalHotKeyManager::unregister_all` actually registering the hotkeys instead of unregistering.
