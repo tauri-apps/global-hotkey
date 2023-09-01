@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.3.0]
+
+- [`fa47029`](https://www.github.com/tauri-apps/global-hotkey/commit/fa47029435ed953b07f5809d9e521bcd2c24bf54) Update `keyboard-types` to `0.7`
+
 ## \[0.2.4]
 
 - [`b0975f9`](https://www.github.com/tauri-apps/global-hotkey/commit/b0975f9983aa023df3cd72bbd8d3158165e9f6eb) Export `CMD_OR_CTRL` const.
