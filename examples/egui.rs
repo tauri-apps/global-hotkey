@@ -7,8 +7,12 @@ use keyboard_types::{Code, Modifiers};
 fn main() -> Result<(), eframe::Error> {
     let manager = GlobalHotKeyManager::new().unwrap();
     let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD);
-
     manager.register(hotkey).unwrap();
+    std::thread::spawn(|| {
+        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
+            println!("tray event: {event:?}");
+        }
+    });
 
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(320.0, 240.0)),
@@ -38,10 +42,6 @@ impl Default for MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
-            println!("tray event: {event:?}");
-        }
-
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My egui Application");
             ui.horizontal(|ui| {
