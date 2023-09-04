@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use std::time::Duration;
+
 use eframe::egui;
 use global_hotkey::{hotkey::HotKey, GlobalHotKeyEvent, GlobalHotKeyManager};
 use keyboard_types::{Code, Modifiers};
@@ -8,10 +10,12 @@ fn main() -> Result<(), eframe::Error> {
     let manager = GlobalHotKeyManager::new().unwrap();
     let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD);
     manager.register(hotkey).unwrap();
-    std::thread::spawn(|| {
-        if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
+    let receiver = GlobalHotKeyEvent::receiver();
+    std::thread::spawn(|| loop {
+        if let Ok(event) = receiver.try_recv() {
             println!("tray event: {event:?}");
         }
+        std::thread::sleep(Duration::from_millis(100));
     });
 
     let options = eframe::NativeOptions {
