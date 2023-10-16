@@ -176,6 +176,7 @@ unsafe extern "C" fn hotkey_handler(
     if result == noErr as _ {
         let _ = GlobalHotKeyEvent::send(GlobalHotKeyEvent {
             id: event_hotkey.id,
+            state: crate::HotKeyState::Pressed,
         });
     }
 
