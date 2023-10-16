@@ -13,6 +13,7 @@ pub type OSType = FourCharCode;
 pub type ByteCount = ::std::os::raw::c_ulong;
 pub type ItemCount = ::std::os::raw::c_ulong;
 pub type OptionBits = UInt32;
+pub type EventKind = UInt32;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct OpaqueEventRef {
@@ -63,6 +64,8 @@ pub type _bindgen_ty_1939 = ::std::os::raw::c_uint;
 pub const kEventClassKeyboard: _bindgen_ty_1939 = 1801812322;
 pub type _bindgen_ty_1980 = ::std::os::raw::c_uint;
 pub const kEventHotKeyPressed: _bindgen_ty_1980 = 5;
+pub type _bindgen_ty_1981 = ::std::os::raw::c_uint;
+pub const kEventHotKeyReleased: _bindgen_ty_1981 = 6;
 pub type _bindgen_ty_1 = ::std::os::raw::c_uint;
 pub const noErr: _bindgen_ty_1 = 0;
 
@@ -77,7 +80,7 @@ pub struct EventHotKeyID {
 #[derive(Debug, Copy, Clone)]
 pub struct EventTypeSpec {
     pub eventClass: OSType,
-    pub eventKind: UInt32,
+    pub eventKind: EventKind,
 }
 
 #[link(name = "Carbon", kind = "framework")]
@@ -91,6 +94,7 @@ extern "C" {
         outActualSize: *mut ByteCount,
         outData: *mut ::std::os::raw::c_void,
     ) -> OSStatus;
+    pub fn GetEventKind(inEvent: EventRef) -> EventKind;
     pub fn GetApplicationEventTarget() -> EventTargetRef;
     pub fn InstallEventHandler(
         inTarget: EventTargetRef,

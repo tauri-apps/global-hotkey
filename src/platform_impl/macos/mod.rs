@@ -5,10 +5,10 @@ use keyboard_types::{Code, Modifiers};
 use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
 use self::ffi::{
-    kEventClassKeyboard, kEventHotKeyPressed, kEventParamDirectObject, noErr, typeEventHotKeyID,
-    EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef, EventRef, EventTypeSpec,
-    GetApplicationEventTarget, GetEventParameter, InstallEventHandler, OSStatus,
-    RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
+    kEventClassKeyboard, kEventHotKeyPressed, kEventHotKeyReleased, kEventParamDirectObject, noErr,
+    typeEventHotKeyID, EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef,
+    EventRef, EventTypeSpec, GetApplicationEventTarget, GetEventKind, GetEventParameter,
+    InstallEventHandler, OSStatus, RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
 };
 
 mod ffi;
@@ -23,10 +23,15 @@ unsafe impl Sync for GlobalHotKeyManager {}
 
 impl GlobalHotKeyManager {
     pub fn new() -> crate::Result<Self> {
-        let event_type = EventTypeSpec {
+        let pressed_event_type = EventTypeSpec {
             eventClass: kEventClassKeyboard,
             eventKind: kEventHotKeyPressed,
         };
+        let released_event_type = EventTypeSpec {
+            eventClass: kEventClassKeyboard,
+            eventKind: kEventHotKeyReleased,
+        };
+        let event_types = [pressed_event_type, released_event_type];
 
         let ptr = unsafe {
             let mut handler_ref: EventHandlerRef = std::mem::zeroed();
@@ -34,8 +39,8 @@ impl GlobalHotKeyManager {
             let result = InstallEventHandler(
                 GetApplicationEventTarget(),
                 Some(hotkey_handler),
-                1,
-                &event_type,
+                2,
+                event_types.as_ptr(),
                 std::ptr::null_mut(),
                 &mut handler_ref,
             );
@@ -174,10 +179,20 @@ unsafe extern "C" fn hotkey_handler(
     );
 
     if result == noErr as _ {
-        let _ = GlobalHotKeyEvent::send(GlobalHotKeyEvent {
-            id: event_hotkey.id,
-            state: crate::HotKeyState::Pressed,
-        });
+        let event_kind = GetEventKind(event);
+        match event_kind {
+            #[allow(non_upper_case_globals)]
+            kEventHotKeyPressed => GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                id: event_hotkey.id,
+                state: crate::HotKeyState::Pressed,
+            }),
+            #[allow(non_upper_case_globals)]
+            kEventHotKeyReleased => GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                id: event_hotkey.id,
+                state: crate::HotKeyState::Released,
+            }),
+            _ => {}
+        };
     }
 
     noErr as _
