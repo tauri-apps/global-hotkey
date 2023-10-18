@@ -69,14 +69,12 @@ pub enum HotKeyState {
     Released,
 }
 
-/// Contains the id of the triggered [`HotKey`] and the state.
 /// Describes a global hotkey event emitted when a [`HotKey`] is pressed or released.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GlobalHotKeyEvent {
     /// Id of the associated [`HotKey`].
     pub id: u32,
     /// State of the associated [`HotKey`].
-    /// The event was triggered by the [`HotKey`] changing to this state.
     pub state: HotKeyState,
 }
 
