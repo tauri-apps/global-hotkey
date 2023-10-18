@@ -91,6 +91,11 @@ impl GlobalHotKeyEvent {
     pub fn id(&self) -> u32 {
         self.id
     }
+    /// Returns the state of the associated [`HotKey`].
+
+    pub fn state(&self) -> HotKeyState {
+        self.state
+    }
 
     /// Gets a reference to the event channel's [`GlobalHotKeyEventReceiver`]
     /// which can be used to listen for global hotkey events.
