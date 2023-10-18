@@ -32,5 +32,5 @@ x11-dl = "2.21"
 
 [dev-dependencies]
 winit = "0.28"
-tao = "0.22"
+tao = "0.23"
 eframe = "0.23"
