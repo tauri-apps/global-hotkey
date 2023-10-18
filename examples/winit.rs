@@ -4,7 +4,7 @@
 
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
-    GlobalHotKeyEvent, GlobalHotKeyManager,
+    GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 use winit::event_loop::{ControlFlow, EventLoopBuilder};
 
@@ -29,7 +29,7 @@ fn main() {
         if let Ok(event) = global_hotkey_channel.try_recv() {
             println!("{event:?}");
 
-            if hotkey2.id() == event.id {
+            if hotkey2.id() == event.id && event.state == HotKeyState::Released {
                 hotkeys_manager.unregister(hotkey2).unwrap();
             }
         }

@@ -60,12 +60,22 @@ mod platform_impl;
 pub use self::error::*;
 use hotkey::HotKey;
 
-/// Contains the id of the triggered [`HotKey`].
-/// Describes a global hotkey event emitted when a [`HotKey`] is pressed.
+/// Describes the state of the [`HotKey`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HotKeyState {
+    /// The [`HotKey`] is pressed (the key is down).  
+    Pressed,
+    /// The [`HotKey`] is released (the key is up).  
+    Released,
+}
+
+/// Describes a global hotkey event emitted when a [`HotKey`] is pressed or released.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GlobalHotKeyEvent {
     /// Id of the associated [`HotKey`].
     pub id: u32,
+    /// State of the associated [`HotKey`].
+    pub state: HotKeyState,
 }
 
 /// A reciever that could be used to listen to global hotkey events.

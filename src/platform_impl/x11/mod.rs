@@ -94,10 +94,17 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) {
                             if let Some((id, repeating)) = hotkeys.get_mut(&(modifiers, keycode)) {
                                 match (e, *repeating) {
                                     (xlib::KeyPress, false) => {
-                                        GlobalHotKeyEvent::send(GlobalHotKeyEvent { id: *id });
+                                        GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                                            id: *id,
+                                            state: crate::HotKeyState::Pressed,
+                                        });
                                         *repeating = true;
                                     }
                                     (xlib::KeyRelease, true) => {
+                                        GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                                            id: *id,
+                                            state: crate::HotKeyState::Released,
+                                        });
                                         *repeating = false;
                                     }
                                     _ => {}

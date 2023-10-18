@@ -139,7 +139,10 @@ unsafe extern "system" fn global_hotkey_subclass_proc(
     _subclass_input_ptr: usize,
 ) -> LRESULT {
     if msg == WM_HOTKEY {
-        GlobalHotKeyEvent::send(GlobalHotKeyEvent { id: wparam as _ });
+        GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+            id: wparam as _,
+            state: crate::HotKeyState::Pressed,
+        });
     }
 
     DefSubclassProc(hwnd, msg, wparam, lparam)
