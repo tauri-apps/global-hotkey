@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.4.0]
+
+- [`53961a1`](https://www.github.com/tauri-apps/global-hotkey/commit/53961a1ade623bb97ce96db71fbe1193ffc9d6a7)([#35](https://www.github.com/tauri-apps/global-hotkey/pull/35)) Support Pressed and Released stats of the hotkey, you can check the newly added `state` field or using the `state()` method on the `GlobalHotKeyEvent`.
+
 ## \[0.3.0]
 
 - [`fa47029`](https://www.github.com/tauri-apps/global-hotkey/commit/fa47029435ed953b07f5809d9e521bcd2c24bf54) Update `keyboard-types` to `0.7`
