@@ -9,21 +9,24 @@ use windows_sys::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::{
         Input::KeyboardAndMouse::*,
-        Shell::{DefSubclassProc, SetWindowSubclass},
         WindowsAndMessaging::{
-            CreateWindowExW, DefWindowProcW, RegisterClassW, CW_USEDEFAULT, HMENU, WM_HOTKEY,
-            WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT,
-            WS_OVERLAPPED,
+            CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, CW_USEDEFAULT, HMENU,
+            WM_HOTKEY, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
+            WS_EX_TRANSPARENT, WS_OVERLAPPED,
         },
     },
 };
 
 use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
-const GLOBAL_HOTKEY_SUBCLASS_ID: usize = 6001;
-
 pub struct GlobalHotKeyManager {
     hwnd: isize,
+}
+
+impl Drop for GlobalHotKeyManager {
+    fn drop(&mut self) {
+        unsafe { DestroyWindow(self.hwnd) };
+    }
 }
 
 impl GlobalHotKeyManager {
@@ -32,17 +35,8 @@ impl GlobalHotKeyManager {
         unsafe {
             let hinstance = get_instance_handle();
 
-            unsafe extern "system" fn call_default_window_proc(
-                hwnd: HWND,
-                msg: u32,
-                wparam: WPARAM,
-                lparam: LPARAM,
-            ) -> LRESULT {
-                DefWindowProcW(hwnd, msg, wparam, lparam)
-            }
-
             let wnd_class = WNDCLASSW {
-                lpfnWndProc: Some(call_default_window_proc),
+                lpfnWndProc: Some(global_hotkey_proc),
                 lpszClassName: class_name.as_ptr(),
                 hInstance: hinstance,
                 ..std::mem::zeroed()
@@ -75,13 +69,6 @@ impl GlobalHotKeyManager {
             if hwnd == 0 {
                 return Err(crate::Error::OsError(std::io::Error::last_os_error()));
             }
-
-            SetWindowSubclass(
-                hwnd,
-                Some(global_hotkey_subclass_proc),
-                GLOBAL_HOTKEY_SUBCLASS_ID,
-                0,
-            );
 
             Ok(Self { hwnd })
         }
@@ -130,22 +117,36 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 }
-unsafe extern "system" fn global_hotkey_subclass_proc(
+unsafe extern "system" fn global_hotkey_proc(
     hwnd: HWND,
     msg: u32,
     wparam: WPARAM,
     lparam: LPARAM,
-    _id: usize,
-    _subclass_input_ptr: usize,
 ) -> LRESULT {
     if msg == WM_HOTKEY {
         GlobalHotKeyEvent::send(GlobalHotKeyEvent {
             id: wparam as _,
             state: crate::HotKeyState::Pressed,
         });
+        std::thread::spawn(move || loop {
+            let state = GetAsyncKeyState(HIWORD(lparam as u32) as i32);
+            if state == 0 {
+                GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                    id: wparam as _,
+                    state: crate::HotKeyState::Released,
+                });
+                break;
+            }
+        });
     }
 
-    DefSubclassProc(hwnd, msg, wparam, lparam)
+    DefWindowProcW(hwnd, msg, wparam, lparam)
+}
+
+#[inline(always)]
+#[allow(non_snake_case)]
+const fn HIWORD(x: u32) -> u16 {
+    ((x >> 16) & 0xFFFF) as u16
 }
 
 pub fn encode_wide<S: AsRef<std::ffi::OsStr>>(string: S) -> Vec<u16> {
