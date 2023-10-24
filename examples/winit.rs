@@ -9,7 +9,7 @@ use global_hotkey::{
 use winit::event_loop::{ControlFlow, EventLoopBuilder};
 
 fn main() {
-    let event_loop = EventLoopBuilder::new().build();
+    let event_loop = EventLoopBuilder::new().build().unwrap();
 
     let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
 
@@ -23,15 +23,17 @@ fn main() {
 
     let global_hotkey_channel = GlobalHotKeyEvent::receiver();
 
-    event_loop.run(move |_event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+    event_loop
+        .run(move |_event, event_loop| {
+            event_loop.set_control_flow(ControlFlow::Poll);
 
-        if let Ok(event) = global_hotkey_channel.try_recv() {
-            println!("{event:?}");
+            if let Ok(event) = global_hotkey_channel.try_recv() {
+                println!("{event:?}");
 
-            if hotkey2.id() == event.id && event.state == HotKeyState::Released {
-                hotkeys_manager.unregister(hotkey2).unwrap();
+                if hotkey2.id() == event.id && event.state == HotKeyState::Released {
+                    hotkeys_manager.unregister(hotkey2).unwrap();
+                }
             }
-        }
-    })
+        })
+        .unwrap();
 }
