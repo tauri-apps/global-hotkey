@@ -33,5 +33,5 @@ fn main() {
                 hotkeys_manager.unregister(hotkey2).unwrap();
             }
         }
-    });
+    }).unwrap();
 }
