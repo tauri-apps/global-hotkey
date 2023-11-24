@@ -131,10 +131,16 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn unregister_all(&self) -> crate::Result<()> {
-        let hotkeys = self.hotkeys.lock().unwrap().clone();
-        for (_, hotkeywrapper) in hotkeys {
-            self.unregister(hotkeywrapper.hotkey)?;
+    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+        for hotkey in hotkeys {
+            self.register(*hotkey)?;
+        }
+        Ok(())
+    }
+
+    pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+        for hotkey in hotkeys {
+            self.unregister(*hotkey)?;
         }
         Ok(())
     }
@@ -154,7 +160,10 @@ impl GlobalHotKeyManager {
 
 impl Drop for GlobalHotKeyManager {
     fn drop(&mut self) {
-        let _ = self.unregister_all();
+        let hotkeys = self.hotkeys.lock().unwrap().clone();
+        for (_, hotkeywrapper) in hotkeys {
+            let _ = self.unregister(hotkeywrapper.hotkey);
+        }
         unsafe {
             RemoveEventHandler(self.event_handler_ptr);
         }
