@@ -9,13 +9,18 @@ use std::{
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use keyboard_types::{Code, Modifiers};
-use x11_dl::{keysym, xlib};
+use x11_dl::{
+    keysym,
+    xlib::{self, Xlib, _XDisplay},
+};
 
 use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
 enum ThreadMessage {
     RegisterHotKey(HotKey, Sender<crate::Result<()>>),
+    RegisterHotKeys(Vec<HotKey>, Sender<crate::Result<()>>),
     UnRegisterHotKey(HotKey, Sender<crate::Result<()>>),
+    UnRegisterHotKeys(Vec<HotKey>, Sender<crate::Result<()>>),
     DropThread,
 }
 
@@ -55,11 +60,127 @@ impl GlobalHotKeyManager {
 
         Ok(())
     }
+
+    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let _ = self
+            .thread_tx
+            .send(ThreadMessage::RegisterHotKeys(hotkeys.to_vec(), tx));
+
+        if let Ok(result) = rx.recv() {
+            result?;
+        }
+
+        Ok(())
+    }
+
+    pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let _ = self
+            .thread_tx
+            .send(ThreadMessage::UnRegisterHotKeys(hotkeys.to_vec(), tx));
+
+        if let Ok(result) = rx.recv() {
+            result?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Drop for GlobalHotKeyManager {
     fn drop(&mut self) {
         let _ = self.thread_tx.send(ThreadMessage::DropThread);
+    }
+}
+
+// XGrabKey works only with the exact state (modifiers)
+// and since X11 considers NumLock, ScrollLock and CapsLock a modifier when it is ON,
+// we also need to register our shortcut combined with these extra modifiers as well
+const IGNORED_MODS: [u32; 4] = [
+    0,              // modifier only
+    xlib::Mod2Mask, // NumLock
+    xlib::LockMask, // CapsLock
+    xlib::Mod2Mask | xlib::LockMask,
+];
+
+#[inline]
+fn register_hotkey(
+    xlib: &Xlib,
+    display: *mut _XDisplay,
+    root: u64,
+    hotkeys: &mut HashMap<(u32, u32), (u32, bool)>,
+    hotkey: HotKey,
+) -> crate::Result<()> {
+    let (modifiers, key) = (
+        modifiers_to_x11_mods(hotkey.mods),
+        keycode_to_x11_scancode(hotkey.key),
+    );
+
+    if let Some(key) = key {
+        let keycode = unsafe { (xlib.XKeysymToKeycode)(display, key as _) };
+
+        for m in IGNORED_MODS {
+            let result = unsafe {
+                (xlib.XGrabKey)(
+                    display,
+                    keycode as _,
+                    modifiers | m,
+                    root,
+                    0,
+                    xlib::GrabModeAsync,
+                    xlib::GrabModeAsync,
+                )
+            };
+
+            if result == xlib::BadAccess as _ {
+                for m in IGNORED_MODS {
+                    unsafe { (xlib.XUngrabKey)(display, keycode as _, modifiers | m, root) };
+                }
+
+                return Err(crate::Error::AlreadyRegistered(hotkey));
+            }
+        }
+
+        if let Entry::Vacant(e) = hotkeys.entry((modifiers, keycode as _)) {
+            e.insert((hotkey.id(), false));
+        } else {
+            return Err(crate::Error::AlreadyRegistered(hotkey));
+        }
+    } else {
+        return Err(crate::Error::FailedToRegister(format!(
+            "Unable to register accelerator (unknown scancode for this key: {}).",
+            hotkey.key
+        )));
+    }
+
+    Ok(())
+}
+
+#[inline]
+fn unregister_hotkey(
+    xlib: &Xlib,
+    display: *mut _XDisplay,
+    root: u64,
+    hotkeys: &mut HashMap<(u32, u32), (u32, bool)>,
+    hotkey: HotKey,
+) -> crate::Result<()> {
+    let (modifiers, key) = (
+        modifiers_to_x11_mods(hotkey.mods),
+        keycode_to_x11_scancode(hotkey.key),
+    );
+
+    if let Some(key) = key {
+        let keycode = unsafe { (xlib.XKeysymToKeycode)(display, key as _) };
+
+        for m in IGNORED_MODS {
+            unsafe { (xlib.XUngrabKey)(display, keycode as _, modifiers | m, root) };
+        }
+
+        hotkeys.remove(&(modifiers, keycode as _));
+        Ok(())
+    } else {
+        Err(crate::Error::FailedToUnRegister(hotkey))
     }
 }
 
@@ -115,98 +236,45 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) {
                     }
                 }
 
-                // XGrabKey works only with the exact state (modifiers)
-                // and since X11 considers NumLock, ScrollLock and CapsLock a modifier when it is ON,
-                // we also need to register our shortcut combined with these extra modifiers as well
-                const IGNORED_MODS: [u32; 4] = [
-                    0,              // modifier only
-                    xlib::Mod2Mask, // NumLock
-                    xlib::LockMask, // CapsLock
-                    xlib::Mod2Mask | xlib::LockMask,
-                ];
-
                 if let Ok(msg) = thread_rx.try_recv() {
                     match msg {
                         ThreadMessage::RegisterHotKey(hotkey, tx) => {
-                            let (modifiers, key) = (
-                                modifiers_to_x11_mods(hotkey.mods),
-                                keycode_to_x11_scancode(hotkey.key),
-                            );
-
-                            if let Some(key) = key {
-                                let keycode = (xlib.XKeysymToKeycode)(display, key as _);
-
-                                let mut errored = false;
-
-                                for m in IGNORED_MODS {
-                                    let result = (xlib.XGrabKey)(
-                                        display,
-                                        keycode as _,
-                                        modifiers | m,
-                                        root,
-                                        0,
-                                        xlib::GrabModeAsync,
-                                        xlib::GrabModeAsync,
-                                    );
-
-                                    if result == xlib::BadAccess as _ {
-                                        errored = true;
-
-                                        let _ =
-                                            tx.send(Err(crate::Error::AlreadyRegistered(hotkey)));
-
-                                        for m in IGNORED_MODS {
-                                            (xlib.XUngrabKey)(
-                                                display,
-                                                keycode as _,
-                                                modifiers | m,
-                                                root,
-                                            );
-                                        }
-
-                                        break;
-                                    }
+                            let _ = tx.send(register_hotkey(
+                                &xlib,
+                                display,
+                                root,
+                                &mut hotkeys,
+                                hotkey,
+                            ));
+                        }
+                        ThreadMessage::RegisterHotKeys(keys, tx) => {
+                            for hotkey in keys {
+                                if let Err(e) =
+                                    register_hotkey(&xlib, display, root, &mut hotkeys, hotkey)
+                                {
+                                    let _ = tx.send(Err(e));
                                 }
-
-                                if !errored {
-                                    if let Entry::Vacant(e) =
-                                        hotkeys.entry((modifiers, keycode as _))
-                                    {
-                                        e.insert((hotkey.id(), false));
-                                    } else {
-                                        let _ =
-                                            tx.send(Err(crate::Error::AlreadyRegistered(hotkey)));
-                                    }
-
-                                    let _ = tx.send(Ok(()));
-                                }
-                            } else {
-                                let _ = tx
-                            .send(Err(crate::Error::FailedToRegister(format!(
-                                "Unable to register accelerator (unknown scancode for this key: {}).",
-                                hotkey.key
-                            ))));
                             }
+                            let _ = tx.send(Ok(()));
                         }
                         ThreadMessage::UnRegisterHotKey(hotkey, tx) => {
-                            let (modifiers, key) = (
-                                modifiers_to_x11_mods(hotkey.mods),
-                                keycode_to_x11_scancode(hotkey.key),
-                            );
-
-                            if let Some(key) = key {
-                                let keycode = (xlib.XKeysymToKeycode)(display, key as _);
-
-                                for m in IGNORED_MODS {
-                                    (xlib.XUngrabKey)(display, keycode as _, modifiers | m, root);
+                            let _ = tx.send(register_hotkey(
+                                &xlib,
+                                display,
+                                root,
+                                &mut hotkeys,
+                                hotkey,
+                            ));
+                        }
+                        ThreadMessage::UnRegisterHotKeys(keys, tx) => {
+                            for hotkey in keys {
+                                if let Err(e) =
+                                    unregister_hotkey(&xlib, display, root, &mut hotkeys, hotkey)
+                                {
+                                    let _ = tx.send(Err(e));
                                 }
-
-                                hotkeys.remove(&(modifiers, keycode as _));
-
-                                let _ = tx.send(Ok(()));
-                            } else {
-                                let _ = tx.send(Err(crate::Error::FailedToUnRegister(hotkey)));
                             }
+                            let _ = tx.send(Ok(()));
                         }
                         ThreadMessage::DropThread => {
                             (xlib.XCloseDisplay)(display);

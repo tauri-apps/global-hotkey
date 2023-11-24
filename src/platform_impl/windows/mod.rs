@@ -116,6 +116,20 @@ impl GlobalHotKeyManager {
         }
         Ok(())
     }
+
+    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+        for hotkey in hotkeys {
+            self.register(*hotkey)?;
+        }
+        Ok(())
+    }
+
+    pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+        for hotkey in hotkeys {
+            self.unregister(*hotkey)?;
+        }
+        Ok(())
+    }
 }
 unsafe extern "system" fn global_hotkey_proc(
     hwnd: HWND,
