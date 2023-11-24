@@ -1,5 +1,11 @@
 # Changelog
 
+## \[0.4.1]
+
+- [`1f9be3e`](https://www.github.com/tauri-apps/global-hotkey/commit/1f9be3e0631817a9c96a4d98289158286cb689e8)([#47](https://www.github.com/tauri-apps/global-hotkey/pull/47)) Add support for `Code::Backquote` on Linux.
+- [`1f9be3e`](https://www.github.com/tauri-apps/global-hotkey/commit/1f9be3e0631817a9c96a4d98289158286cb689e8)([#47](https://www.github.com/tauri-apps/global-hotkey/pull/47)) On Linux, fix hotkey `press/release` events order and sometimes missing `release` event when the modifiers have been already released before the key itself has been released.
+- [`1f9be3e`](https://www.github.com/tauri-apps/global-hotkey/commit/1f9be3e0631817a9c96a4d98289158286cb689e8)([#47](https://www.github.com/tauri-apps/global-hotkey/pull/47)) On Linux, improve the performance of `GlobalHotKeyManager::register_all` and `GlobalHotKeyManager::unregister_all` to 2711x faster.
+
 ## \[0.4.0]
 
 - [`53961a1`](https://www.github.com/tauri-apps/global-hotkey/commit/53961a1ade623bb97ce96db71fbe1193ffc9d6a7)([#35](https://www.github.com/tauri-apps/global-hotkey/pull/35)) Support Pressed and Released stats of the hotkey, you can check the newly added `state` field or using the `state()` method on the `GlobalHotKeyEvent`.
