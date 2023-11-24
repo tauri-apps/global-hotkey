@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::c_void, sync::Mutex};
+use std::{collections::BTreeMap, ffi::c_void, sync::Mutex};
 
 use keyboard_types::{Code, Modifiers};
 
@@ -15,7 +15,7 @@ mod ffi;
 
 pub struct GlobalHotKeyManager {
     event_handler_ptr: EventHandlerRef,
-    hotkeys: Mutex<HashMap<u32, HotKeyWrapper>>,
+    hotkeys: Mutex<BTreeMap<u32, HotKeyWrapper>>,
 }
 
 unsafe impl Send for GlobalHotKeyManager {}
@@ -54,7 +54,7 @@ impl GlobalHotKeyManager {
 
         Ok(Self {
             event_handler_ptr: ptr,
-            hotkeys: Mutex::new(HashMap::new()),
+            hotkeys: Mutex::new(BTreeMap::new()),
         })
     }
 

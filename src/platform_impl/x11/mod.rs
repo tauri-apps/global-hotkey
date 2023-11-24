@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    ptr,
-};
+use std::{collections::BTreeMap, ptr};
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use keyboard_types::{Code, Modifiers};
@@ -109,7 +106,7 @@ fn register_hotkey(
     xlib: &Xlib,
     display: *mut _XDisplay,
     root: u64,
-    hotkeys: &mut HashMap<(u32, u32), (u32, bool)>,
+    hotkeys: &mut BTreeMap<u32, Vec<(u32, u32, bool)>>,
     hotkey: HotKey,
 ) -> crate::Result<()> {
     let (modifiers, key) = (
@@ -142,19 +139,20 @@ fn register_hotkey(
             }
         }
 
-        if let Entry::Vacant(e) = hotkeys.entry((modifiers, keycode as _)) {
-            e.insert((hotkey.id(), false));
-        } else {
-            return Err(crate::Error::AlreadyRegistered(hotkey));
+        let entry = hotkeys.entry(keycode as _).or_default();
+        match entry.iter().find(|e| e.1 == modifiers) {
+            None => {
+                entry.push((hotkey.id(), modifiers, false));
+                Ok(())
+            }
+            Some(_) => Err(crate::Error::AlreadyRegistered(hotkey)),
         }
     } else {
-        return Err(crate::Error::FailedToRegister(format!(
+        Err(crate::Error::FailedToRegister(format!(
             "Unable to register accelerator (unknown scancode for this key: {}).",
             hotkey.key
-        )));
+        )))
     }
-
-    Ok(())
 }
 
 #[inline]
@@ -162,7 +160,7 @@ fn unregister_hotkey(
     xlib: &Xlib,
     display: *mut _XDisplay,
     root: u64,
-    hotkeys: &mut HashMap<(u32, u32), (u32, bool)>,
+    hotkeys: &mut BTreeMap<u32, Vec<(u32, u32, bool)>>,
     hotkey: HotKey,
 ) -> crate::Result<()> {
     let (modifiers, key) = (
@@ -177,7 +175,8 @@ fn unregister_hotkey(
             unsafe { (xlib.XUngrabKey)(display, keycode as _, modifiers | m, root) };
         }
 
-        hotkeys.remove(&(modifiers, keycode as _));
+        let entry = hotkeys.entry(keycode as _).or_default();
+        entry.retain(|k| k.1 != modifiers);
         Ok(())
     } else {
         Err(crate::Error::FailedToUnRegister(hotkey))
@@ -185,8 +184,8 @@ fn unregister_hotkey(
 }
 
 fn events_processor(thread_rx: Receiver<ThreadMessage>) {
-    //                           mods, key    id,  repeating
-    let mut hotkeys = HashMap::<(u32, u32), (u32, bool)>::new();
+    //                           key    id,  mods, pressed
+    let mut hotkeys = BTreeMap::<u32, Vec<(u32, u32, bool)>>::new();
     if let Ok(xlib) = xlib::Xlib::open() {
         unsafe {
             let display = (xlib.XOpenDisplay)(ptr::null());
@@ -203,30 +202,38 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) {
                 if (xlib.XPending)(display) > 0 {
                     (xlib.XNextEvent)(display, &mut event);
                     match event.get_type() {
-                        e if matches!(e, xlib::KeyPress | xlib::KeyRelease) => {
+                        e @ xlib::KeyPress | e @ xlib::KeyRelease => {
                             let keycode = event.key.keycode;
                             // X11 sends masks for Lock keys also and we only care about the 4 below
-                            let modifiers = event.key.state
+                            let event_mods = event.key.state
                                 & (xlib::ControlMask
                                     | xlib::ShiftMask
                                     | xlib::Mod4Mask
                                     | xlib::Mod1Mask);
 
-                            if let Some((id, repeating)) = hotkeys.get_mut(&(modifiers, keycode)) {
-                                match (e, *repeating) {
-                                    (xlib::KeyPress, false) => {
-                                        GlobalHotKeyEvent::send(GlobalHotKeyEvent {
-                                            id: *id,
-                                            state: crate::HotKeyState::Pressed,
-                                        });
-                                        *repeating = true;
+                            if let Some(entry) = hotkeys.get_mut(&keycode) {
+                                match e {
+                                    xlib::KeyPress => {
+                                        for (id, mods, pressed) in entry {
+                                            if event_mods == *mods && !*pressed {
+                                                GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                                                    id: *id,
+                                                    state: crate::HotKeyState::Pressed,
+                                                });
+                                                *pressed = true;
+                                            }
+                                        }
                                     }
-                                    (xlib::KeyRelease, true) => {
-                                        GlobalHotKeyEvent::send(GlobalHotKeyEvent {
-                                            id: *id,
-                                            state: crate::HotKeyState::Released,
-                                        });
-                                        *repeating = false;
+                                    xlib::KeyRelease => {
+                                        for (id, _, pressed) in entry {
+                                            if *pressed {
+                                                GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                                                    id: *id,
+                                                    state: crate::HotKeyState::Released,
+                                                });
+                                                *pressed = false;
+                                            }
+                                        }
                                     }
                                     _ => {}
                                 }
@@ -258,7 +265,7 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) {
                             let _ = tx.send(Ok(()));
                         }
                         ThreadMessage::UnRegisterHotKey(hotkey, tx) => {
-                            let _ = tx.send(register_hotkey(
+                            let _ = tx.send(unregister_hotkey(
                                 &xlib,
                                 display,
                                 root,
