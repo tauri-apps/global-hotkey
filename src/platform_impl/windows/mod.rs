@@ -31,7 +31,7 @@ impl Drop for GlobalHotKeyManager {
 
 impl GlobalHotKeyManager {
     pub fn new() -> crate::Result<Self> {
-        let class_name = encode_wide("tray_icon_app");
+        let class_name = encode_wide("global_hotkey_app");
         unsafe {
             let hinstance = get_instance_handle();
 
