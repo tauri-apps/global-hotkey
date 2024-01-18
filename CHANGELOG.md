@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.4.2]
+
+- [`b538534`](https://www.github.com/tauri-apps/global-hotkey/commit/b538534f9181ccd38e76d93368378fc6ed3a3a08) Changed window class name used interally so it wouldn't conflict with `tray-icon` crate implementation.
+
 ## \[0.4.1]
 
 - [`1f9be3e`](https://www.github.com/tauri-apps/global-hotkey/commit/1f9be3e0631817a9c96a4d98289158286cb689e8)([#47](https://www.github.com/tauri-apps/global-hotkey/pull/47)) Add support for `Code::Backquote` on Linux.
