@@ -1,5 +1,16 @@
 # Changelog
 
+## \[0.5.0]
+
+- [`7d99bd7`](https://www.github.com/tauri-apps/global-hotkey/commit/7d99bd78a383e11ae6bb8fce0525afcc9e427c8f)([#61](https://www.github.com/tauri-apps/global-hotkey/pull/61)) Refactored the errors when parsing accelerator from string:
+
+  - Added `HotKeyParseError` error enum.
+  - Removed `Error::UnrecognizedHotKeyCode` enum variant
+  - Removed `Error::EmptyHotKeyToken` enum variant
+  - Removed `Error::UnexpectedHotKeyFormat` enum variant
+  - Changed `Error::HotKeyParseError` inner value from `String` to the newly added `HotKeyParseError` enum.
+- [`7d99bd7`](https://www.github.com/tauri-apps/global-hotkey/commit/7d99bd78a383e11ae6bb8fce0525afcc9e427c8f)([#61](https://www.github.com/tauri-apps/global-hotkey/pull/61)) Avoid panicing when parsing an invalid `HotKey` from a string such as `SHIFT+SHIFT` and return an error instead.
+
 ## \[0.4.2]
 
 - [`b538534`](https://www.github.com/tauri-apps/global-hotkey/commit/b538534f9181ccd38e76d93368378fc6ed3a3a08) Changed window class name used interally so it wouldn't conflict with `tray-icon` crate implementation.
