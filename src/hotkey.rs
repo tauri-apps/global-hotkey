@@ -35,10 +35,20 @@ pub const CMD_OR_CTRL: Modifiers = Modifiers::SUPER;
 #[cfg(not(target_os = "macos"))]
 pub const CMD_OR_CTRL: Modifiers = Modifiers::CONTROL;
 
+#[derive(thiserror::Error, Debug)]
+pub enum HotKeyParseError {
+    #[error("Couldn't recognize \"{0}\" as a valid key for hotkey, if you feel like it should be, please report this to https://github.com/tauri-apps/muda")]
+    UnsupportedKey(String),
+    #[error("Found empty token while parsing hotkey: {0}")]
+    EmptyToken(String),
+    #[error("Invalid hotkey format: \"{0}\", an hotkey should have the modifiers first and only one main key, for example: \"Shift + Alt + K\"")]
+    InvalidFormat(String),
+}
+
 /// A keyboard shortcut that consists of an optional combination
 /// of modifier keys (provided by [`Modifiers`](crate::hotkey::Modifiers)) and
 /// one key ([`Code`](crate::hotkey::Code)).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HotKey {
     pub(crate) mods: Modifiers,
     pub(crate) key: Code,
@@ -54,34 +64,35 @@ impl HotKey {
             mods.remove(Modifiers::META);
             mods.insert(Modifiers::SUPER);
         }
-        let mut hotkey = Self { mods, key, id: 0 };
-        hotkey.generate_hash();
-        hotkey
+
+        let id = Self::generate_hash(mods, key);
+
+        Self { mods, key, id }
     }
 
-    fn generate_hash(&mut self) {
-        let mut str = String::new();
-        if self.mods.contains(Modifiers::SHIFT) {
-            str.push_str("shift+")
+    fn generate_hash(mods: Modifiers, key: Code) -> u32 {
+        let mut hotkey_str = String::new();
+        if mods.contains(Modifiers::SHIFT) {
+            hotkey_str.push_str("shift+")
         }
-        if self.mods.contains(Modifiers::CONTROL) {
-            str.push_str("control+")
+        if mods.contains(Modifiers::CONTROL) {
+            hotkey_str.push_str("control+")
         }
-        if self.mods.contains(Modifiers::ALT) {
-            str.push_str("alt+")
+        if mods.contains(Modifiers::ALT) {
+            hotkey_str.push_str("alt+")
         }
-        if self.mods.contains(Modifiers::SUPER) {
-            str.push_str("super+")
+        if mods.contains(Modifiers::SUPER) {
+            hotkey_str.push_str("super+")
         }
-        str.push_str(&self.key.to_string());
+        hotkey_str.push_str(&key.to_string());
 
-        let mut s = std::collections::hash_map::DefaultHasher::new();
-        str.hash(&mut s);
-        self.id = std::hash::Hasher::finish(&s) as u32;
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        hotkey_str.hash(&mut hasher);
+        std::hash::Hasher::finish(&hasher) as u32
     }
 
     /// Returns the id associated with this hotKey
-    /// which is a hash of a string representing modifiers and key within this hotKey
+    /// which is a hash of the string represention of modifiers and key within this hotKey.
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -100,14 +111,14 @@ impl HotKey {
 // compatible with tauri and it also open the option
 // to generate hotkey from string
 impl FromStr for HotKey {
-    type Err = crate::Error;
+    type Err = HotKeyParseError;
     fn from_str(hotkey_string: &str) -> Result<Self, Self::Err> {
         parse_hotkey(hotkey_string)
     }
 }
 
 impl TryFrom<&str> for HotKey {
-    type Error = crate::Error;
+    type Error = HotKeyParseError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         parse_hotkey(value)
@@ -115,14 +126,14 @@ impl TryFrom<&str> for HotKey {
 }
 
 impl TryFrom<String> for HotKey {
-    type Error = crate::Error;
+    type Error = HotKeyParseError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         parse_hotkey(&value)
     }
 }
 
-fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
+fn parse_hotkey(hotkey: &str) -> Result<HotKey, HotKeyParseError> {
     let tokens = hotkey.split('+').collect::<Vec<&str>>();
 
     let mut mods = Modifiers::empty();
@@ -139,7 +150,7 @@ fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
                 let token = raw.trim();
 
                 if token.is_empty() {
-                    return Err(crate::Error::EmptyHotKeyToken(hotkey.to_string()));
+                    return Err(HotKeyParseError::EmptyToken(hotkey.to_string()));
                 }
 
                 if key.is_some() {
@@ -149,27 +160,29 @@ fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
                     // examples:
                     // 1. "Ctrl+Shift+C+A" => only one main key should be allowd.
                     // 2. "Ctrl+C+Shift" => wrong order
-                    return Err(crate::Error::UnexpectedHotKeyFormat(hotkey.to_string()));
+                    return Err(HotKeyParseError::InvalidFormat(hotkey.to_string()));
                 }
 
                 match token.to_uppercase().as_str() {
                     "OPTION" | "ALT" => {
-                        mods.set(Modifiers::ALT, true);
+                        mods |= Modifiers::ALT;
                     }
                     "CONTROL" | "CTRL" => {
-                        mods.set(Modifiers::CONTROL, true);
+                        mods |= Modifiers::CONTROL;
                     }
                     "COMMAND" | "CMD" | "SUPER" => {
-                        mods.set(Modifiers::SUPER, true);
+                        mods |= Modifiers::SUPER;
                     }
                     "SHIFT" => {
-                        mods.set(Modifiers::SHIFT, true);
+                        mods |= Modifiers::SHIFT;
                     }
+                    #[cfg(target_os = "macos")]
                     "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
-                        #[cfg(target_os = "macos")]
-                        mods.set(Modifiers::SUPER, true);
-                        #[cfg(not(target_os = "macos"))]
-                        mods.set(Modifiers::CONTROL, true);
+                        mods |= Modifiers::SUPER;
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
+                        mods |= Modifiers::CONTROL;
                     }
                     _ => {
                         key = Some(parse_key(token)?);
@@ -182,7 +195,7 @@ fn parse_hotkey(hotkey: &str) -> crate::Result<HotKey> {
     Ok(HotKey::new(Some(mods), key.unwrap()))
 }
 
-fn parse_key(key: &str) -> crate::Result<Code> {
+fn parse_key(key: &str) -> Result<Code, HotKeyParseError> {
     use Code::*;
     match key.to_uppercase().as_str() {
         "BACKQUOTE" | "`" => Ok(Backquote),
@@ -296,7 +309,7 @@ fn parse_key(key: &str) -> crate::Result<Code> {
         "F23" => Ok(F23),
         "F24" => Ok(F24),
 
-        _ => Err(crate::Error::UnrecognizedHotKeyCode(key.to_string())),
+        _ => Err(HotKeyParseError::UnsupportedKey(key.to_string())),
     }
 }
 
