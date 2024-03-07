@@ -63,9 +63,9 @@ use hotkey::HotKey;
 /// Describes the state of the [`HotKey`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HotKeyState {
-    /// The [`HotKey`] is pressed (the key is down).  
+    /// The [`HotKey`] is pressed (the key is down).
     Pressed,
-    /// The [`HotKey`] is released (the key is up).  
+    /// The [`HotKey`] is released (the key is up).
     Released,
 }
 
