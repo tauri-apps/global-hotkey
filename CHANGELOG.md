@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.5.1]
+
+- [`89199d9`](https://www.github.com/tauri-apps/global-hotkey/commit/89199d930db3a71f1e19a29d6c1d6ff2e8cffb11)([#64](https://www.github.com/tauri-apps/global-hotkey/pull/64)) Add no-op implementations for unsupported targets.
+
 ## \[0.5.0]
 
 - [`7d99bd7`](https://www.github.com/tauri-apps/global-hotkey/commit/7d99bd78a383e11ae6bb8fce0525afcc9e427c8f)([#61](https://www.github.com/tauri-apps/global-hotkey/pull/61)) Refactored the errors when parsing accelerator from string:
