@@ -1,5 +1,5 @@
 use keyboard_types::{Code, Modifiers};
-use objc2::{msg_send_id, rc::Retained, ClassType};
+use objc2::{msg_send, rc::Retained, ClassType};
 use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventSubtype, NSEventType};
 use std::{
     collections::{BTreeMap, HashSet},
@@ -347,7 +347,7 @@ unsafe extern "C" fn media_key_event_callback(
         return event;
     }
 
-    let ns_event: Retained<NSEvent> = msg_send_id![NSEvent::class(), eventWithCGEvent: event];
+    let ns_event: Retained<NSEvent> = msg_send![NSEvent::class(), eventWithCGEvent: event];
     let event_type = ns_event.r#type();
     let event_subtype = ns_event.subtype();
 
@@ -363,16 +363,16 @@ unsafe extern "C" fn media_key_event_callback(
         // Modifiers
         let flags = ns_event.modifierFlags();
         let mut mods = Modifiers::empty();
-        if flags.contains(NSEventModifierFlags::NSEventModifierFlagShift) {
+        if flags.contains(NSEventModifierFlags::Shift) {
             mods |= Modifiers::SHIFT;
         }
-        if flags.contains(NSEventModifierFlags::NSEventModifierFlagControl) {
+        if flags.contains(NSEventModifierFlags::Control) {
             mods |= Modifiers::CONTROL;
         }
-        if flags.contains(NSEventModifierFlags::NSEventModifierFlagOption) {
+        if flags.contains(NSEventModifierFlags::Option) {
             mods |= Modifiers::ALT;
         }
-        if flags.contains(NSEventModifierFlags::NSEventModifierFlagCommand) {
+        if flags.contains(NSEventModifierFlags::Command) {
             mods |= Modifiers::META;
         }
 
