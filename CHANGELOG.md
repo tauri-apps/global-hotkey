@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.6.4]
+
+- [`a25c485`](https://www.github.com/tauri-apps/global-hotkey/commit/a25c485b6fce488799510c7f70563db3ebcdb72f) ([#120](https://www.github.com/tauri-apps/global-hotkey/pull/120) by [@FabianLars](https://www.github.com/tauri-apps/global-hotkey/../../FabianLars)) Update `objc2` to `0.6`. This raises the MSRV to 1.71 which is now also set in `rust-version`.
+
 ## \[0.6.3]
 
 - [`ddf5515`](https://www.github.com/tauri-apps/global-hotkey/commit/ddf5515712f85e887e715bda7da40becc9159ac9) ([#112](https://www.github.com/tauri-apps/global-hotkey/pull/112) by [@amrbashir](https://www.github.com/tauri-apps/global-hotkey/../../amrbashir)) Support using `Pause` or `PauseBreak` key on Windows and Linux.

@@ -1,6 +1,6 @@
 [package]
 name = "global-hotkey"
-version = "0.6.3"
+version = "0.6.4"
 description = "Global hotkeys for Desktop Applications"
 edition = "2021"
 keywords = ["windowing", "global", "global-hotkey", "hotkey"]
