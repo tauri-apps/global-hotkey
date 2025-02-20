@@ -1980,7 +1980,6 @@ dependencies = [
  "keyboard-types",
  "objc2 0.6.0",
  "objc2-app-kit 0.3.0",
- "once_cell",
  "serde",
  "tao",
  "thiserror 2.0.11",

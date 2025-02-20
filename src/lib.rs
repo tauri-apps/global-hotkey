@@ -50,8 +50,9 @@
 //! - macOS
 //! - Linux (X11 Only)
 
+use std::sync::{LazyLock, OnceLock};
+
 use crossbeam_channel::{unbounded, Receiver, Sender};
-use once_cell::sync::{Lazy, OnceCell};
 
 mod error;
 pub mod hotkey;
@@ -84,9 +85,9 @@ pub struct GlobalHotKeyEvent {
 pub type GlobalHotKeyEventReceiver = Receiver<GlobalHotKeyEvent>;
 type GlobalHotKeyEventHandler = Box<dyn Fn(GlobalHotKeyEvent) + Send + Sync + 'static>;
 
-static GLOBAL_HOTKEY_CHANNEL: Lazy<(Sender<GlobalHotKeyEvent>, GlobalHotKeyEventReceiver)> =
-    Lazy::new(unbounded);
-static GLOBAL_HOTKEY_EVENT_HANDLER: OnceCell<Option<GlobalHotKeyEventHandler>> = OnceCell::new();
+static GLOBAL_HOTKEY_CHANNEL: LazyLock<(Sender<GlobalHotKeyEvent>, GlobalHotKeyEventReceiver)> =
+    LazyLock::new(unbounded);
+static GLOBAL_HOTKEY_EVENT_HANDLER: OnceLock<Option<GlobalHotKeyEventHandler>> = OnceLock::new();
 
 impl GlobalHotKeyEvent {
     /// Returns the id of the associated [`HotKey`].
