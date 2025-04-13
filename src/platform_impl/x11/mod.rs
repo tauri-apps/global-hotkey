@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{collections::BTreeMap, ffi::c_ulong, ptr};
+use std::{collections::BTreeMap, ffi::c_ulong, ptr, sync::Mutex};
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use keyboard_types::{Code, Modifiers};
@@ -101,6 +101,12 @@ const IGNORED_MODS: [u32; 4] = [
     xlib::Mod2Mask | xlib::LockMask,
 ];
 
+struct XlibError {
+    error_code: std::ffi::c_uchar,
+}
+
+static XLIB_ERROR: Mutex<Option<XlibError>> = Mutex::new(None);
+
 #[inline]
 fn register_hotkey(
     xlib: &Xlib,
@@ -129,6 +135,22 @@ fn register_hotkey(
                     xlib::GrabModeAsync,
                 )
             };
+
+            unsafe {
+                (xlib.XSync)(display, 0);
+            }
+
+            let error = XLIB_ERROR.lock().expect("lock is poisoned").take();
+
+            if let Some(error) = error {
+                if error.error_code == xlib::BadAccess {
+                    for m in IGNORED_MODS {
+                        unsafe { (xlib.XUngrabKey)(display, keycode as _, modifiers | m, root) };
+                    }
+
+                    return Err(crate::Error::AlreadyRegistered(hotkey));
+                }
+            }
 
             if result == xlib::BadAccess as _ {
                 for m in IGNORED_MODS {
@@ -190,6 +212,23 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) {
         unsafe {
             let display = (xlib.XOpenDisplay)(ptr::null());
             let root: c_ulong = (xlib.XDefaultRootWindow)(display);
+
+            #[cfg(feature = "winit")]
+            winit::platform::x11::register_xlib_error_hook(Box::new(|_display, error| {
+                let error_event = *(error as *mut xlib::XErrorEvent);
+
+                // 33 is XGrabKey
+                if error_event.request_code == 33 {
+                    let mut error = XLIB_ERROR.lock().expect("lock is poisoned");
+                    *error = Some(XlibError {
+                        error_code: error_event.error_code,
+                    });
+
+                    true
+                } else {
+                    false
+                }
+            }));
 
             // Only trigger key release at end of repeated keys
             let mut supported_rtrn: i32 = 0;

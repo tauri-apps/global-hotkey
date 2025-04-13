@@ -12,6 +12,7 @@ categories = ["gui"]
 
 [features]
 serde = ["dep:serde"]
+winit = ["dep:winit"]
 
 [dependencies]
 crossbeam-channel = "0.5"
@@ -37,10 +38,26 @@ features = [
 
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
 x11-dl = "2.21"
+winit = { version = "0.30", optional = true }
 
 [dev-dependencies]
-winit = "0.29"
+winit = "0.30"
 tao = "0.30"
 eframe = "0.27"
 iced = "0.12.1"
 async-std = "1.12.0"
+
+[[example]]
+name = "iced"
+path = "examples/iced.rs"
+required-features = ["winit"]
+
+[[example]]
+name = "egui"
+path = "examples/egui.rs"
+required-features = ["winit"]
+
+[[example]]
+name = "winit"
+path = "examples/winit.rs"
+required-features = ["winit"]

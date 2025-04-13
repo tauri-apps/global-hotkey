@@ -10,6 +10,8 @@ global_hotkey lets you register Global HotKeys for Desktop Applications.
 
 - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
+- On Linux X11, if attempted to register a hotkey which is already registered by another application, the error will be reported on process-wide Xlib error handler, more information: https://www.remlab.net/op/xlib.shtml
+  - For winit, `winit` feature is available which captures global error and properly returns it in `register()` response Result, otherwise the error will result in panic in unrelated place
 
 ## Example
 
