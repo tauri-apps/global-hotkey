@@ -24,7 +24,7 @@ pub enum Error {
     FailedToRegister(String),
     #[error("Failed to unregister hotkey: {0:?}")]
     FailedToUnRegister(HotKey),
-    #[error("HotKey already registerd: {0:?}")]
+    #[error("HotKey already registered: {0:?}")]
     AlreadyRegistered(HotKey),
     #[error("Failed to watch media key event")]
     FailedToWatchMediaKeyEvent,

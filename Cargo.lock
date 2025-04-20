@@ -1223,7 +1223,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e3d747f100290a1ca24b752186f61f6637e1deffe3bf6320de6fcb29510a307"
 dependencies = [
  "bitflags 2.8.0",
- "libloading 0.7.4",
+ "libloading 0.8.6",
  "winapi",
 ]
 
@@ -1319,7 +1319,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.7.4",
+ "libloading 0.8.6",
 ]
 
 [[package]]
@@ -2118,9 +2118,11 @@ dependencies = [
  "serde",
  "tao",
  "thiserror 2.0.11",
+ "tracing",
  "windows-sys 0.59.0",
  "winit 0.30.9",
- "x11-dl",
+ "x11rb",
+ "xkeysym",
 ]
 
 [[package]]
@@ -2381,7 +2383,7 @@ dependencies = [
  "bitflags 2.8.0",
  "com",
  "libc",
- "libloading 0.7.4",
+ "libloading 0.8.6",
  "thiserror 1.0.69",
  "widestring",
  "winapi",
@@ -3202,7 +3204,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 2.0.0",
+ "proc-macro-crate 3.3.0",
  "proc-macro2",
  "quote",
  "syn 2.0.96",
@@ -5333,7 +5335,7 @@ dependencies = [
  "js-sys",
  "khronos-egl",
  "libc",
- "libloading 0.7.4",
+ "libloading 0.8.6",
  "log",
  "metal",
  "naga",
@@ -5393,7 +5395,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
