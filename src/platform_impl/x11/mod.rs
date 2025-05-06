@@ -31,8 +31,9 @@ impl GlobalHotKeyManager {
     pub fn new() -> crate::Result<Self> {
         let (thread_tx, thread_rx) = unbounded();
         std::thread::spawn(|| {
-            if let Err(err) = events_processor(thread_rx) {
-                tracing::error!("{}", err);
+            if let Err(_err) = events_processor(thread_rx) {
+                #[cfg(feature = "tracing")]
+                tracing::error!("{}", _err);
             }
         });
         Ok(Self { thread_tx })
