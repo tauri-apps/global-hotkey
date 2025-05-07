@@ -1,5 +1,9 @@
 # Changelog
 
+## \[0.7.0]
+
+- [`77dbe4e`](https://www.github.com/tauri-apps/global-hotkey/commit/77dbe4ebe5911f9ee41f3264ecb11295d7e6abe7) ([#150](https://www.github.com/tauri-apps/global-hotkey/pull/150) by [@Exidex](https://www.github.com/tauri-apps/global-hotkey/../../Exidex)) Use `x11rb` crate instead of `x11-dl` for linux (x11) backend.
+
 ## \[0.6.4]
 
 - [`a25c485`](https://www.github.com/tauri-apps/global-hotkey/commit/a25c485b6fce488799510c7f70563db3ebcdb72f) ([#120](https://www.github.com/tauri-apps/global-hotkey/pull/120) by [@FabianLars](https://www.github.com/tauri-apps/global-hotkey/../../FabianLars)) Update `objc2` to `0.6`. This raises the MSRV to 1.71 which is now also set in `rust-version`.
