@@ -4,7 +4,7 @@
 
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
-    wayland::{wl_wait_until_hotkey_change, WlNewHotKey},
+    wayland::WlNewHotKey,
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 use tao::event_loop::{ControlFlow, EventLoopBuilder};

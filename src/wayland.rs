@@ -4,11 +4,11 @@ use keyboard_types::Code;
 
 use crate::{
     hotkey::HotKey,
-    macros::{not_on_linux_cfg, on_linux_cfg, on_linux_cfg_item},
+    macros::{not_on_linux_cfg, on_linux_cfg},
     on_linux,
 };
 
-on_linux_cfg_item! {
+on_linux_cfg! {
     use crate::platform_impl::wl_hotkeys_changed_receiver;
 }
 
@@ -16,24 +16,30 @@ pub fn using_wayland() -> bool {
     on_linux!() && env::var("WAYLAND_DISPLAY").is_ok()
 }
 
-pub fn wl_have_hotkeys_changed() -> bool {
-    on_linux_cfg!({
-        return using_wayland() && wl_hotkeys_changed_receiver().try_recv().is_ok();
-    });
-    not_on_linux_cfg!({
-        return false;
-    });
+on_linux_cfg! {
+    pub fn wl_have_hotkeys_changed() -> bool {
+        using_wayland() && wl_hotkeys_changed_receiver().try_recv().is_ok()
+    }
 }
 
-pub fn wl_wait_until_hotkey_change() -> bool {
-    if using_wayland() {
-        on_linux_cfg!({
-            return wl_hotkeys_changed_receiver().recv().is_ok();
-        });
-        not_on_linux_cfg!({
-            return false;
-        });
-    } else {
+not_on_linux_cfg! {
+    pub fn wl_have_hotkeys_changed() -> bool {
+        false
+    }
+}
+
+on_linux_cfg! {
+    pub fn wl_wait_until_hotkey_change() -> bool {
+        if using_wayland() {
+            wl_hotkeys_changed_receiver().recv().is_ok()
+        } else {
+            false
+        }
+    }
+}
+
+not_on_linux_cfg! {
+    pub fn wl_wait_until_hotkey_change() -> bool {
         false
     }
 }

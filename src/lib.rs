@@ -169,19 +169,28 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn wl_register_all(&self, hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
-        on_linux_cfg!({
+    on_linux_cfg! {
+        pub fn wl_register_all(&self, hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
             self.platform_impl.wl_register_all(hotkeys)?;
-        });
-        Ok(())
+            Ok(())
+        }
     }
 
-    pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
-        on_linux_cfg!({
-            return self.platform_impl.wl_get_hotkeys();
-        });
-        not_on_linux_cfg!({
-            return Box::new([]);
-        });
+    not_on_linux_cfg! {
+        pub fn wl_register_all(&self, _hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
+            Ok(())
+        }
+    }
+
+    on_linux_cfg! {
+        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
+            self.platform_impl.wl_get_hotkeys()
+        }
+    }
+
+    not_on_linux_cfg! {
+        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
+            Box::new([])
+        }
     }
 }
