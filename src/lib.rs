@@ -56,6 +56,16 @@ use once_cell::sync::{Lazy, OnceCell};
 mod error;
 pub mod hotkey;
 mod platform_impl;
+pub mod wayland;
+
+#[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd"
+))]
+use crate::wayland::WlHotKey;
 
 pub use self::error::*;
 use hotkey::HotKey;
@@ -158,6 +168,18 @@ impl GlobalHotKeyManager {
 
     pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
         self.platform_impl.unregister_all(hotkeys)?;
+        Ok(())
+    }
+
+    pub fn wl_register_all(&self, hotkeys: &[WlHotKey]) -> crate::Result<()> {
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd"
+        ))]
+        self.platform_impl.wl_register_all(hotkeys)?;
         Ok(())
     }
 }

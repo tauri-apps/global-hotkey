@@ -4,6 +4,7 @@
 
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
+    wayland::WlHotKey,
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
@@ -35,15 +36,25 @@ fn main() {
     hotkeys_manager.register(hotkey3).unwrap();
     hotkeys_manager.register(hotkey4).unwrap();
 
+    hotkeys_manager
+        .wl_register_all(&[
+            WlHotKey::new(hotkey.id(), "Example Description 1", Some(hotkey)),
+            WlHotKey::new(hotkey2.id(), "Example Description 2", Some(hotkey2)),
+            WlHotKey::new(hotkey3.id(), "Example Description 3", Some(hotkey3)),
+            WlHotKey::new(hotkey4.id(), "Example Description 4", Some(hotkey4)),
+        ])
+        .unwrap();
+
     let global_hotkey_channel = GlobalHotKeyEvent::receiver();
 
     event_loop.run(move |_event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
 
-        if let Ok(event) = global_hotkey_channel.try_recv() {
+        if let Ok(event) = global_hotkey_channel.recv() {
             println!("{event:?}");
 
             if hotkey2.id() == event.id && event.state == HotKeyState::Released {
+                println!("Unregistering hotkey2");
                 hotkeys_manager.unregister(hotkey2).unwrap();
             }
         }
