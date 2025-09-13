@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, num::ParseIntError};
 
 use ashpd::desktop::{
-    global_shortcuts::{Activated, Deactivated, GlobalShortcuts, NewShortcut, ShortcutsChanged},
+    global_shortcuts::{
+        Activated, Deactivated, GlobalShortcuts, NewShortcut, Shortcut, ShortcutsChanged,
+    },
     Session,
 };
 use crossbeam_channel::{bounded, Receiver, Select, Sender};
@@ -217,6 +219,36 @@ static WL_HOTKEYS_CHANGED_CHANNEL: Lazy<(
     Receiver<WlHotKeysChangedEvent>,
 )> = Lazy::new(|| bounded(1));
 
-pub fn wl_hotkeys_changed_receiver() -> Receiver<WlHotKeysChangedEvent> {
+pub(crate) fn wl_hotkeys_changed_receiver() -> Receiver<WlHotKeysChangedEvent> {
     WL_HOTKEYS_CHANGED_CHANNEL.1.clone()
+}
+
+impl TryFrom<Shortcut> for WlHotKey {
+    type Error = ParseIntError;
+
+    fn try_from(value: Shortcut) -> Result<Self, Self::Error> {
+        let id = value.id().parse::<u32>()?;
+
+        Ok(Self {
+            id,
+            description: value.description().into(),
+            trigger_description: value.trigger_description().into(),
+        })
+    }
+}
+
+impl From<WlHotKey> for NewShortcut {
+    fn from(wl_hotkey: WlHotKey) -> Self {
+        NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description())
+    }
+}
+
+impl From<WlNewHotKey> for NewShortcut {
+    fn from(wl_hotkey: WlNewHotKey) -> Self {
+        let mut ns = NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description());
+        if let Some(pt) = wl_hotkey.preferred_trigger() {
+            ns = ns.preferred_trigger(pt);
+        }
+        ns
+    }
 }

@@ -1,21 +1,38 @@
-use std::{env, num::ParseIntError};
+use std::env;
 
-use ashpd::desktop::global_shortcuts::{NewShortcut, Shortcut};
 use keyboard_types::Code;
 
-use crate::{hotkey::HotKey, on_linux, platform_impl::wl_hotkeys_changed_receiver};
+use crate::{
+    hotkey::HotKey,
+    macros::{not_on_linux_cfg, on_linux_cfg, on_linux_cfg_item},
+    on_linux,
+};
+
+on_linux_cfg_item! {
+    use crate::platform_impl::wl_hotkeys_changed_receiver;
+}
 
 pub fn using_wayland() -> bool {
     on_linux!() && env::var("WAYLAND_DISPLAY").is_ok()
 }
 
 pub fn wl_have_hotkeys_changed() -> bool {
-    using_wayland() && wl_hotkeys_changed_receiver().try_recv().is_ok()
+    on_linux_cfg!({
+        return using_wayland() && wl_hotkeys_changed_receiver().try_recv().is_ok();
+    });
+    not_on_linux_cfg!({
+        return false;
+    });
 }
 
 pub fn wl_wait_until_hotkey_change() -> bool {
     if using_wayland() {
-        wl_hotkeys_changed_receiver().recv().is_ok()
+        on_linux_cfg!({
+            return wl_hotkeys_changed_receiver().recv().is_ok();
+        });
+        not_on_linux_cfg!({
+            return false;
+        });
     } else {
         false
     }
@@ -55,9 +72,9 @@ impl WlNewHotKey {
 
 #[derive(Debug, Clone)]
 pub struct WlHotKey {
-    id: u32,
-    description: String,
-    trigger_description: String,
+    pub(crate) id: u32,
+    pub(crate) description: String,
+    pub(crate) trigger_description: String,
 }
 
 impl WlHotKey {
@@ -71,36 +88,6 @@ impl WlHotKey {
 
     pub fn trigger_description(&self) -> &str {
         &self.trigger_description
-    }
-}
-
-impl TryFrom<Shortcut> for WlHotKey {
-    type Error = ParseIntError;
-
-    fn try_from(value: Shortcut) -> Result<Self, Self::Error> {
-        let id = value.id().parse::<u32>()?;
-
-        Ok(Self {
-            id,
-            description: value.description().into(),
-            trigger_description: value.trigger_description().into(),
-        })
-    }
-}
-
-impl From<WlHotKey> for NewShortcut {
-    fn from(wl_hotkey: WlHotKey) -> Self {
-        NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description())
-    }
-}
-
-impl From<WlNewHotKey> for NewShortcut {
-    fn from(wl_hotkey: WlNewHotKey) -> Self {
-        let mut ns = NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description());
-        if let Some(pt) = wl_hotkey.preferred_trigger() {
-            ns = ns.preferred_trigger(pt);
-        }
-        ns
     }
 }
 

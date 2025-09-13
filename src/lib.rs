@@ -55,23 +55,13 @@ use once_cell::sync::{Lazy, OnceCell};
 
 mod error;
 pub mod hotkey;
+pub(crate) mod macros;
 mod platform_impl;
 pub mod wayland;
 
-macro_rules! on_linux {
-    () => {
-        cfg!(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "openbsd",
-            target_os = "netbsd"
-        ))
-    };
-}
-
-pub(crate) use on_linux;
-
+use crate::macros::not_on_linux_cfg;
+use crate::macros::on_linux;
+use crate::macros::on_linux_cfg;
 use crate::wayland::WlHotKey;
 use crate::wayland::WlNewHotKey;
 
@@ -180,17 +170,18 @@ impl GlobalHotKeyManager {
     }
 
     pub fn wl_register_all(&self, hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
-        if on_linux!() {
+        on_linux_cfg!({
             self.platform_impl.wl_register_all(hotkeys)?;
-        }
+        });
         Ok(())
     }
 
     pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
-        if on_linux!() {
-            self.platform_impl.wl_get_hotkeys()
-        } else {
-            Box::new([])
-        }
+        on_linux_cfg!({
+            return self.platform_impl.wl_get_hotkeys();
+        });
+        not_on_linux_cfg!({
+            return Box::new([]);
+        });
     }
 }
