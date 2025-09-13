@@ -58,14 +58,22 @@ pub mod hotkey;
 mod platform_impl;
 pub mod wayland;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "openbsd",
-    target_os = "netbsd"
-))]
+macro_rules! on_linux {
+    () => {
+        cfg!(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "openbsd",
+            target_os = "netbsd"
+        ))
+    };
+}
+
+pub(crate) use on_linux;
+
 use crate::wayland::WlHotKey;
+use crate::wayland::WlNewHotKey;
 
 pub use self::error::*;
 use hotkey::HotKey;
@@ -171,15 +179,18 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn wl_register_all(&self, hotkeys: &[WlHotKey]) -> crate::Result<()> {
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "openbsd",
-            target_os = "netbsd"
-        ))]
-        self.platform_impl.wl_register_all(hotkeys)?;
+    pub fn wl_register_all(&self, hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
+        if on_linux!() {
+            self.platform_impl.wl_register_all(hotkeys)?;
+        }
         Ok(())
+    }
+
+    pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
+        if on_linux!() {
+            self.platform_impl.wl_get_hotkeys()
+        } else {
+            Box::new([])
+        }
     }
 }

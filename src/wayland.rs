@@ -1,38 +1,34 @@
+use std::{env, num::ParseIntError};
+
+use ashpd::desktop::global_shortcuts::{NewShortcut, Shortcut};
 use keyboard_types::Code;
 
-use crate::hotkey::HotKey;
+use crate::{hotkey::HotKey, on_linux, platform_impl::wl_hotkeys_changed_receiver};
 
 pub fn using_wayland() -> bool {
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    ))]
-    {
-        use std::env;
-        return env::var("WAYLAND_DISPLAY").is_ok();
-    }
-
-    #[cfg(not(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "openbsd",
-        target_os = "netbsd"
-    )))]
-    return false;
+    on_linux!() && env::var("WAYLAND_DISPLAY").is_ok()
 }
 
-#[derive(Clone)]
-pub struct WlHotKey {
+pub fn wl_have_hotkeys_changed() -> bool {
+    using_wayland() && wl_hotkeys_changed_receiver().try_recv().is_ok()
+}
+
+pub fn wl_wait_until_hotkey_change() -> bool {
+    if using_wayland() {
+        wl_hotkeys_changed_receiver().recv().is_ok()
+    } else {
+        false
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WlNewHotKey {
     id: u32,
     description: String,
     preferred_trigger: Option<String>,
 }
 
-impl WlHotKey {
+impl WlNewHotKey {
     pub fn new<S>(id: u32, description: S, preferred_trigger: Option<HotKey>) -> Self
     where
         S: Into<String>,
@@ -54,6 +50,57 @@ impl WlHotKey {
 
     pub fn preferred_trigger(&self) -> Option<&str> {
         self.preferred_trigger.as_deref()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WlHotKey {
+    id: u32,
+    description: String,
+    trigger_description: String,
+}
+
+impl WlHotKey {
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+
+    pub fn trigger_description(&self) -> &str {
+        &self.trigger_description
+    }
+}
+
+impl TryFrom<Shortcut> for WlHotKey {
+    type Error = ParseIntError;
+
+    fn try_from(value: Shortcut) -> Result<Self, Self::Error> {
+        let id = value.id().parse::<u32>()?;
+
+        Ok(Self {
+            id,
+            description: value.description().into(),
+            trigger_description: value.trigger_description().into(),
+        })
+    }
+}
+
+impl From<WlHotKey> for NewShortcut {
+    fn from(wl_hotkey: WlHotKey) -> Self {
+        NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description())
+    }
+}
+
+impl From<WlNewHotKey> for NewShortcut {
+    fn from(wl_hotkey: WlNewHotKey) -> Self {
+        let mut ns = NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description());
+        if let Some(pt) = wl_hotkey.preferred_trigger() {
+            ns = ns.preferred_trigger(pt);
+        }
+        ns
     }
 }
 
