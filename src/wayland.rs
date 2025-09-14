@@ -158,8 +158,8 @@ impl WlNewHotKeyAction {
     /// * `id` - a unique [`u32`] to identify this action and all its associated hotkeys.
     /// * `description` - a short, human-readable description detailing what triggering this action does.
     /// * `preferred_hotkey` - an optional recommended hotkey that the user will be presented with
-    /// when registering this action for the first time. If the hotkey cannot be parsed, it will be
-    /// ignored.
+    ///   when registering this action for the first time. If the hotkey cannot be parsed, it will be
+    ///   ignored.
     pub fn new<S>(id: u32, description: S, preferred_hotkey: Option<HotKey>) -> Self
     where
         S: Into<String>,
