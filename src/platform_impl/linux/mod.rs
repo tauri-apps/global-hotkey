@@ -6,7 +6,7 @@ use crossbeam_channel::{unbounded, Sender};
 
 use crate::{
     hotkey::HotKey,
-    wayland::{using_wayland, WlHotKey, WlNewHotKey},
+    wayland::{using_wayland, WlHotKeyAction, WlNewHotKeyAction},
 };
 
 mod wayland;
@@ -15,8 +15,8 @@ mod x11;
 pub(crate) use wayland::wl_hotkeys_changed_receiver;
 
 enum ThreadMessage {
-    WlRegisterHotKeys(Vec<WlNewHotKey>, Sender<crate::Result<()>>),
-    WlGetHotKeys(Sender<Box<[WlHotKey]>>),
+    WlRegisterHotKeys(Vec<WlNewHotKeyAction>, Sender<crate::Result<()>>),
+    WlGetHotKeys(Sender<Box<[WlHotKeyAction]>>),
 
     RegisterHotKey(HotKey, Sender<crate::Result<()>>),
     RegisterHotKeys(Vec<HotKey>, Sender<crate::Result<()>>),
@@ -97,7 +97,7 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn wl_register_all(&self, hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
+    pub fn wl_register_all(&self, hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
         let (tx, rx) = crossbeam_channel::bounded(1);
         let _ = self
             .thread_tx
@@ -110,7 +110,7 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
+    pub fn wl_get_hotkeys(&self) -> Box<[WlHotKeyAction]> {
         let (tx, rx) = crossbeam_channel::bounded(1);
         let _ = self.thread_tx.send(ThreadMessage::WlGetHotKeys(tx));
 

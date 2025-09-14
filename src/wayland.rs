@@ -1,6 +1,43 @@
-use std::env;
+// Copyright 2022-2022 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
 
-use keyboard_types::Code;
+//! This module is for Wayland-specific functions.
+//!
+//! # How Hotkeys on Wayland Work
+//!
+//! Wayland makes use of the XDG GlobalShortcuts portal ([see the official portal documentation for
+//! more
+//! details](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.GlobalShortcuts.html)).
+//!
+//! On Wayland, you define a set of actions, where each action has any number of associated
+//! hotkeys to trigger it which are configured externally, not by the application.
+//!
+//! The first time some actions are registered, the user is shown a prompt with a list of actions,
+//! a description for what each action does, and they are given an option to configure each action's
+//! hotkeys (which may have a default setting). The user can configure these hotkeys later in their
+//! system's settings.
+//!
+//! An application can request a list of each action along with the associated hotkeys, as well as
+//! receive events whenever the user changes any of these hotkeys.
+//!
+//! # How to Use this Module
+//!
+//! You can verify if the user is using Wayland with the [`using_wayland()`] function.
+//!
+//! Register all your actions using
+//! [`GlobalHotKeyManager::wl_register_all`](crate::GlobalHotKeyManager::wl_register_all). This
+//! should be used to register all your application's hotkey actions at once, since each call to
+//! this function could create a popup.
+//!
+//! Use [`GlobalHotKeyManager::wl_get_hotkeys`](crate::GlobalHotKeyManager::wl_get_hotkeys) to get
+//! the current list of registered hotkeys.
+//!
+//! The [`wl_have_hotkeys_changed`] function, or its blocking variant
+//! [`wl_wait_for_hotkey_change`], will return true if the user has changed a hotkey since the last
+//! call to either of these functions.
+
+use std::env;
 
 use crate::{
     hotkey::HotKey,
@@ -12,24 +49,39 @@ on_linux_cfg! {
     use crate::platform_impl::wl_hotkeys_changed_receiver;
 }
 
+/// Returns `true` if `WAYLAND_DISPLAY` is set and running on Linux/BSD.
 pub fn using_wayland() -> bool {
     on_linux!() && env::var("WAYLAND_DISPLAY").is_ok()
 }
 
+/// Returns true if user has changed hotkeys since the last call to [`wl_have_hotkeys_changed`] or
+/// [`wl_wait_for_hotkey_change`].
+pub fn wl_have_hotkeys_changed() -> bool {
+    wl_have_hotkeys_changed_impl()
+}
+
+/// Same as [`wl_have_hotkeys_changed`] except that this function will block until a hotkey change
+/// occurs.
+///
+/// Returns `false` if not using Linux/BSD and Wayland.
+pub fn wl_wait_for_hotkey_change() -> bool {
+    wl_wait_for_hotkey_change_impl()
+}
+
 on_linux_cfg! {
-    pub fn wl_have_hotkeys_changed() -> bool {
+    fn wl_have_hotkeys_changed_impl() -> bool {
         using_wayland() && wl_hotkeys_changed_receiver().try_recv().is_ok()
     }
 }
 
 not_on_linux_cfg! {
-    pub fn wl_have_hotkeys_changed() -> bool {
+    fn wl_have_hotkeys_changed_impl() -> bool {
         false
     }
 }
 
 on_linux_cfg! {
-    pub fn wl_wait_until_hotkey_change() -> bool {
+    fn wl_wait_for_hotkey_change_impl() -> bool {
         if using_wayland() {
             wl_hotkeys_changed_receiver().recv().is_ok()
         } else {
@@ -39,185 +91,84 @@ on_linux_cfg! {
 }
 
 not_on_linux_cfg! {
-    pub fn wl_wait_until_hotkey_change() -> bool {
+    fn wl_wait_for_hotkey_change_impl() -> bool {
         false
     }
 }
 
+/// Used to register a new action under Wayland which can have associated hotkeys.
 #[derive(Debug, Clone)]
-pub struct WlNewHotKey {
+pub struct WlNewHotKeyAction {
     id: u32,
     description: String,
-    preferred_trigger: Option<String>,
+    preferred_hotkey: Option<HotKey>,
 }
 
-impl WlNewHotKey {
-    pub fn new<S>(id: u32, description: S, preferred_trigger: Option<HotKey>) -> Self
+impl WlNewHotKeyAction {
+    /// Creates a new [`WlNewHotKeyAction`].
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - a unique [`u32`] to identify this action and all its associated hotkeys.
+    /// * `description` - a short, human-readable description detailing what triggering this action does.
+    /// * `preferred_hotkey` - an optional recommended hotkey that the user will be presented with
+    /// when registering this action for the first time. If the hotkey cannot be parsed, it will be
+    /// ignored.
+    pub fn new<S>(id: u32, description: S, preferred_hotkey: Option<HotKey>) -> Self
     where
         S: Into<String>,
     {
         Self {
             id,
             description: description.into(),
-            preferred_trigger: preferred_trigger.and_then(hotkey_to_wayland_trigger),
+            preferred_hotkey,
         }
     }
 
+    /// A unique numerical id to identify the hotkeys associated with this action.
     pub fn id(&self) -> u32 {
         self.id
     }
 
+    /// A human-readable description detailing what triggering this action does.
     pub fn description(&self) -> &str {
         &self.description
     }
 
-    pub fn preferred_trigger(&self) -> Option<&str> {
-        self.preferred_trigger.as_deref()
+    /// The optional recommended key-combination that the user will be presented with when
+    /// registering this hotkey for the first time.
+    pub fn preferred_hotkey(&self) -> Option<HotKey> {
+        self.preferred_hotkey
     }
 }
 
+/// A registered hotkey action that can have any number of associated hotkeys.
 #[derive(Debug, Clone)]
-pub struct WlHotKey {
+pub struct WlHotKeyAction {
     pub(crate) id: u32,
-    pub(crate) description: String,
-    pub(crate) trigger_description: String,
+    pub(crate) action_description: String,
+    pub(crate) hotkey_description: String,
 }
 
-impl WlHotKey {
+impl WlHotKeyAction {
+    /// A unique numerical id to identify this action and its associated hotkeys.
     pub fn id(&self) -> u32 {
         self.id
     }
 
-    pub fn description(&self) -> &str {
-        &self.description
+    /// A human-readable description detailing what the action does.
+    pub fn action_description(&self) -> &str {
+        &self.action_description
     }
 
-    pub fn trigger_description(&self) -> &str {
-        &self.trigger_description
+    /// Description of the hotkeys to trigger this action (e.g. `CTRL+ALT+U`).
+    ///
+    /// ## Note
+    ///
+    /// It can contain any number of hotkeys, including none at all. See the [shortcuts XDG
+    /// specification](https://specifications.freedesktop.org/shortcuts-spec/latest/) for more
+    /// information about how each hotkey is formatted.
+    pub fn hotkey_description(&self) -> &str {
+        &self.hotkey_description
     }
-}
-
-fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {
-    let mut mods = "".to_string();
-
-    if hotkey.mods.ctrl() {
-        mods += "CTRL+";
-    }
-    if hotkey.mods.shift() {
-        mods += "SHIFT+";
-    }
-    if hotkey.mods.alt() {
-        mods += "ALT+";
-    }
-    if hotkey.mods.meta() {
-        mods += "LOGO+";
-    }
-
-    let keycode = match hotkey.key {
-        Code::KeyA => "A",
-        Code::KeyB => "B",
-        Code::KeyC => "C",
-        Code::KeyD => "D",
-        Code::KeyE => "E",
-        Code::KeyF => "F",
-        Code::KeyG => "G",
-        Code::KeyH => "H",
-        Code::KeyI => "I",
-        Code::KeyJ => "J",
-        Code::KeyK => "K",
-        Code::KeyL => "L",
-        Code::KeyM => "M",
-        Code::KeyN => "N",
-        Code::KeyO => "O",
-        Code::KeyP => "P",
-        Code::KeyQ => "Q",
-        Code::KeyR => "R",
-        Code::KeyS => "S",
-        Code::KeyT => "T",
-        Code::KeyU => "U",
-        Code::KeyV => "V",
-        Code::KeyW => "W",
-        Code::KeyX => "X",
-        Code::KeyY => "Y",
-        Code::KeyZ => "Z",
-        Code::Backslash => "backslash",
-        Code::BracketLeft => "bracketleft",
-        Code::BracketRight => "bracketright",
-        Code::Backquote => "grave",
-        Code::Comma => "comma",
-        Code::Digit0 => "0",
-        Code::Digit1 => "1",
-        Code::Digit2 => "2",
-        Code::Digit3 => "3",
-        Code::Digit4 => "4",
-        Code::Digit5 => "5",
-        Code::Digit6 => "6",
-        Code::Digit7 => "7",
-        Code::Digit8 => "8",
-        Code::Digit9 => "9",
-        Code::Equal => "equal",
-        Code::Minus => "minus",
-        Code::Period => "period",
-        Code::Quote => "apostrophe",
-        Code::Semicolon => "semicolon",
-        Code::Slash => "slash",
-        Code::Backspace => "BackSpace",
-        Code::CapsLock => "Caps_Lock",
-        Code::Enter => "Return",
-        Code::Space => "space",
-        Code::Tab => "Tab",
-        Code::Delete => "Delete",
-        Code::End => "End",
-        Code::Home => "Home",
-        Code::Insert => "Insert",
-        Code::PageDown => "Page_Down",
-        Code::PageUp => "Page_Up",
-        Code::ArrowDown => "downarrow",
-        Code::ArrowLeft => "leftarrow",
-        Code::ArrowRight => "rightarrow",
-        Code::ArrowUp => "uparrow",
-        Code::Numpad0 => "KP_0",
-        Code::Numpad1 => "KP_1",
-        Code::Numpad2 => "KP_2",
-        Code::Numpad3 => "KP_3",
-        Code::Numpad4 => "KP_4",
-        Code::Numpad5 => "KP_5",
-        Code::Numpad6 => "KP_6",
-        Code::Numpad7 => "KP_7",
-        Code::Numpad8 => "KP_8",
-        Code::Numpad9 => "KP_9",
-        Code::NumpadAdd => "KP_Add",
-        Code::NumpadDecimal => "KP_Decimal",
-        Code::NumpadDivide => "KP_Divide",
-        Code::NumpadMultiply => "KP_Multiply",
-        Code::NumpadSubtract => "KP_Subtract",
-        Code::Escape => "Escape",
-        Code::PrintScreen => "Print",
-        Code::ScrollLock => "Scroll_Lock",
-        Code::NumLock => "Num_lock",
-        Code::F1 => "F1",
-        Code::F2 => "F2",
-        Code::F3 => "F3",
-        Code::F4 => "F4",
-        Code::F5 => "F5",
-        Code::F6 => "F6",
-        Code::F7 => "F7",
-        Code::F8 => "F8",
-        Code::F9 => "F9",
-        Code::F10 => "F10",
-        Code::F11 => "F11",
-        Code::F12 => "F12",
-        Code::AudioVolumeDown => "XF86AudioLowerVolume",
-        Code::AudioVolumeMute => "XF86AudioMute",
-        Code::AudioVolumeUp => "XF86AudioRaiseVolume",
-        Code::MediaPlay => "XF86AudioPlay",
-        Code::MediaPause => "XF86AudioPause",
-        Code::MediaStop => "XF86AudioStop",
-        Code::MediaTrackNext => "XF86AudioNext",
-        Code::MediaTrackPrevious => "XF86AudioPrev",
-        Code::Pause => "Pause",
-        _ => return None,
-    };
-
-    Some(mods + keycode)
 }

@@ -62,8 +62,8 @@ pub mod wayland;
 use crate::macros::not_on_linux_cfg;
 use crate::macros::on_linux;
 use crate::macros::on_linux_cfg;
-use crate::wayland::WlHotKey;
-use crate::wayland::WlNewHotKey;
+use crate::wayland::WlHotKeyAction;
+use crate::wayland::WlNewHotKeyAction;
 
 pub use self::error::*;
 use hotkey::HotKey;
@@ -170,26 +170,26 @@ impl GlobalHotKeyManager {
     }
 
     on_linux_cfg! {
-        pub fn wl_register_all(&self, hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
+        pub fn wl_register_all(&self, hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
             self.platform_impl.wl_register_all(hotkeys)?;
             Ok(())
         }
     }
 
     not_on_linux_cfg! {
-        pub fn wl_register_all(&self, _hotkeys: &[WlNewHotKey]) -> crate::Result<()> {
+        pub fn wl_register_all(&self, _hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
             Ok(())
         }
     }
 
     on_linux_cfg! {
-        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
+        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKeyAction]> {
             self.platform_impl.wl_get_hotkeys()
         }
     }
 
     not_on_linux_cfg! {
-        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKey]> {
+        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKeyAction]> {
             Box::new([])
         }
     }

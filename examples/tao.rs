@@ -4,7 +4,7 @@
 
 use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
-    wayland::WlNewHotKey,
+    wayland::WlNewHotKeyAction,
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
@@ -38,10 +38,10 @@ fn main() {
 
     hotkeys_manager
         .wl_register_all(&[
-            WlNewHotKey::new(hotkey.id(), "Example Description 1", Some(hotkey)),
-            WlNewHotKey::new(hotkey2.id(), "Example Description 2", Some(hotkey2)),
-            WlNewHotKey::new(hotkey3.id(), "Example Description 3", Some(hotkey3)),
-            WlNewHotKey::new(hotkey4.id(), "Example Description 4", Some(hotkey4)),
+            WlNewHotKeyAction::new(hotkey.id(), "Example Description 1", Some(hotkey)),
+            WlNewHotKeyAction::new(hotkey2.id(), "Example Description 2", Some(hotkey2)),
+            WlNewHotKeyAction::new(hotkey3.id(), "Example Description 3", Some(hotkey3)),
+            WlNewHotKeyAction::new(hotkey4.id(), "Example Description 4", Some(hotkey4)),
         ])
         .unwrap();
 

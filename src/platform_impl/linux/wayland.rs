@@ -1,3 +1,7 @@
+// Copyright 2022-2022 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
 use std::{collections::HashMap, num::ParseIntError};
 
 use ashpd::desktop::{
@@ -8,12 +12,14 @@ use ashpd::desktop::{
 };
 use crossbeam_channel::{bounded, Receiver, Select, Sender};
 use futures::{stream::select_all, Stream, StreamExt};
+use keyboard_types::Code;
 use once_cell::sync::Lazy;
 
 use crate::{
     error::Error,
+    hotkey::HotKey,
     platform_impl::platform::ThreadMessage,
-    wayland::{WlHotKey, WlNewHotKey},
+    wayland::{WlHotKeyAction, WlNewHotKeyAction},
     GlobalHotKeyEvent, HotKeyState,
 };
 
@@ -33,9 +39,10 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
         .await
         .map_err(|e| format!("Failed to start global shortcuts portal session: {e}"))?;
 
-    let mut registered_hotkeys = Vec::<WlHotKey>::new();
+    let mut registered_hotkeys = Vec::<WlHotKeyAction>::new();
     let mut hotkey_states = HashMap::<u32, bool>::new();
 
+    // combining the activated, deactivated, and shortcuts changed events into one stream
     let mut gs_event_stream: Box<dyn Stream<Item = GSEvent> + Unpin + Send> = {
         let activated: Box<dyn Stream<Item = GSEvent> + Unpin + Send> = Box::new(
             proxy
@@ -71,6 +78,8 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
     };
 
     let (tx, gs_rx) = crossbeam_channel::unbounded();
+
+    // listening for global shortcuts events in a separate thread
     tokio::spawn(async move {
         while let Some(ev) = gs_event_stream.next().await {
             let _ = tx.send(ev);
@@ -166,8 +175,8 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
 async fn reregister_hotkeys<'a>(
     proxy: &GlobalShortcuts<'a>,
     session: &mut Session<'a, GlobalShortcuts<'a>>,
-    registered_hotkeys: &mut Vec<WlHotKey>,
-    new_hotkeys: &[WlNewHotKey],
+    registered_hotkeys: &mut Vec<WlHotKeyAction>,
+    new_hotkeys: &[WlNewHotKeyAction],
 ) -> Result<(), Error> {
     session.close().await.map_err(|e| {
         Error::FailedToRegister(format!("Failed to close old global shortcuts session: {e}"))
@@ -223,7 +232,7 @@ pub(crate) fn wl_hotkeys_changed_receiver() -> Receiver<WlHotKeysChangedEvent> {
     WL_HOTKEYS_CHANGED_CHANNEL.1.clone()
 }
 
-impl TryFrom<Shortcut> for WlHotKey {
+impl TryFrom<Shortcut> for WlHotKeyAction {
     type Error = ParseIntError;
 
     fn try_from(value: Shortcut) -> Result<Self, Self::Error> {
@@ -231,24 +240,150 @@ impl TryFrom<Shortcut> for WlHotKey {
 
         Ok(Self {
             id,
-            description: value.description().into(),
-            trigger_description: value.trigger_description().into(),
+            action_description: value.description().into(),
+            hotkey_description: value.trigger_description().into(),
         })
     }
 }
 
-impl From<WlHotKey> for NewShortcut {
-    fn from(wl_hotkey: WlHotKey) -> Self {
-        NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description())
+impl From<WlHotKeyAction> for NewShortcut {
+    fn from(wl_hotkey: WlHotKeyAction) -> Self {
+        NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.action_description())
     }
 }
 
-impl From<WlNewHotKey> for NewShortcut {
-    fn from(wl_hotkey: WlNewHotKey) -> Self {
-        let mut ns = NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description());
-        if let Some(pt) = wl_hotkey.preferred_trigger() {
-            ns = ns.preferred_trigger(pt);
-        }
-        ns
+impl From<WlNewHotKeyAction> for NewShortcut {
+    fn from(wl_hotkey: WlNewHotKeyAction) -> Self {
+        NewShortcut::new(wl_hotkey.id().to_string(), wl_hotkey.description()).preferred_trigger(
+            wl_hotkey
+                .preferred_hotkey()
+                .and_then(hotkey_to_wayland_trigger)
+                .as_deref(),
+        )
     }
+}
+
+fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {
+    let mut mods = "".to_string();
+
+    if hotkey.mods.ctrl() {
+        mods += "CTRL+";
+    }
+    if hotkey.mods.shift() {
+        mods += "SHIFT+";
+    }
+    if hotkey.mods.alt() {
+        mods += "ALT+";
+    }
+    if hotkey.mods.meta() {
+        mods += "LOGO+";
+    }
+
+    let keycode = match hotkey.key {
+        Code::KeyA => "A",
+        Code::KeyB => "B",
+        Code::KeyC => "C",
+        Code::KeyD => "D",
+        Code::KeyE => "E",
+        Code::KeyF => "F",
+        Code::KeyG => "G",
+        Code::KeyH => "H",
+        Code::KeyI => "I",
+        Code::KeyJ => "J",
+        Code::KeyK => "K",
+        Code::KeyL => "L",
+        Code::KeyM => "M",
+        Code::KeyN => "N",
+        Code::KeyO => "O",
+        Code::KeyP => "P",
+        Code::KeyQ => "Q",
+        Code::KeyR => "R",
+        Code::KeyS => "S",
+        Code::KeyT => "T",
+        Code::KeyU => "U",
+        Code::KeyV => "V",
+        Code::KeyW => "W",
+        Code::KeyX => "X",
+        Code::KeyY => "Y",
+        Code::KeyZ => "Z",
+        Code::Backslash => "backslash",
+        Code::BracketLeft => "bracketleft",
+        Code::BracketRight => "bracketright",
+        Code::Backquote => "grave",
+        Code::Comma => "comma",
+        Code::Digit0 => "0",
+        Code::Digit1 => "1",
+        Code::Digit2 => "2",
+        Code::Digit3 => "3",
+        Code::Digit4 => "4",
+        Code::Digit5 => "5",
+        Code::Digit6 => "6",
+        Code::Digit7 => "7",
+        Code::Digit8 => "8",
+        Code::Digit9 => "9",
+        Code::Equal => "equal",
+        Code::Minus => "minus",
+        Code::Period => "period",
+        Code::Quote => "apostrophe",
+        Code::Semicolon => "semicolon",
+        Code::Slash => "slash",
+        Code::Backspace => "BackSpace",
+        Code::CapsLock => "Caps_Lock",
+        Code::Enter => "Return",
+        Code::Space => "space",
+        Code::Tab => "Tab",
+        Code::Delete => "Delete",
+        Code::End => "End",
+        Code::Home => "Home",
+        Code::Insert => "Insert",
+        Code::PageDown => "Page_Down",
+        Code::PageUp => "Page_Up",
+        Code::ArrowDown => "downarrow",
+        Code::ArrowLeft => "leftarrow",
+        Code::ArrowRight => "rightarrow",
+        Code::ArrowUp => "uparrow",
+        Code::Numpad0 => "KP_0",
+        Code::Numpad1 => "KP_1",
+        Code::Numpad2 => "KP_2",
+        Code::Numpad3 => "KP_3",
+        Code::Numpad4 => "KP_4",
+        Code::Numpad5 => "KP_5",
+        Code::Numpad6 => "KP_6",
+        Code::Numpad7 => "KP_7",
+        Code::Numpad8 => "KP_8",
+        Code::Numpad9 => "KP_9",
+        Code::NumpadAdd => "KP_Add",
+        Code::NumpadDecimal => "KP_Decimal",
+        Code::NumpadDivide => "KP_Divide",
+        Code::NumpadMultiply => "KP_Multiply",
+        Code::NumpadSubtract => "KP_Subtract",
+        Code::Escape => "Escape",
+        Code::PrintScreen => "Print",
+        Code::ScrollLock => "Scroll_Lock",
+        Code::NumLock => "Num_lock",
+        Code::F1 => "F1",
+        Code::F2 => "F2",
+        Code::F3 => "F3",
+        Code::F4 => "F4",
+        Code::F5 => "F5",
+        Code::F6 => "F6",
+        Code::F7 => "F7",
+        Code::F8 => "F8",
+        Code::F9 => "F9",
+        Code::F10 => "F10",
+        Code::F11 => "F11",
+        Code::F12 => "F12",
+        Code::AudioVolumeDown => "XF86AudioLowerVolume",
+        Code::AudioVolumeMute => "XF86AudioMute",
+        Code::AudioVolumeUp => "XF86AudioRaiseVolume",
+        Code::MediaPlay => "XF86AudioPlay",
+        Code::MediaPause => "XF86AudioPause",
+        Code::MediaStop => "XF86AudioStop",
+        Code::MediaTrackNext => "XF86AudioNext",
+        Code::MediaTrackPrevious => "XF86AudioPrev",
+        Code::Pause => "Pause",
+        _ => return None,
+    };
+
+    Some(mods + keycode)
 }
