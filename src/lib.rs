@@ -16,7 +16,7 @@
 //!
 //! - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 //! - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
-//! - Global HotKeys work differently on Wayland. See the [`wayland`] module for more details.
+//! - Global HotKeys work differently on Linux/Wayland. See the [`wayland`] module for more details.
 //!
 //! # Example
 //!
