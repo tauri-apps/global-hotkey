@@ -99,6 +99,12 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                             .await,
                     );
                 }
+                Ok(ThreadMessage::WlUnRegisterHotKeys(ids)) => {
+                    registered_hotkeys = registered_hotkeys
+                        .into_iter()
+                        .filter(|rh| !ids.contains(&rh.id()))
+                        .collect()
+                }
                 Ok(ThreadMessage::WlGetHotKeys(tx)) => {
                     let _ = tx.send(registered_hotkeys.clone().into());
                 }

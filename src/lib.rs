@@ -184,6 +184,16 @@ impl GlobalHotKeyManager {
     }
 
     on_linux_cfg! {
+        pub fn wl_unregister_all(&self, hotkey_action_ids: &[u32]) {
+            self.platform_impl.wl_unregister_all(hotkey_action_ids);
+        }
+    }
+
+    not_on_linux_cfg! {
+        pub fn wl_unregister_all(&self, hotkey_action_ids: &[u32]) {}
+    }
+
+    on_linux_cfg! {
         pub fn wl_get_hotkeys(&self) -> Box<[WlHotKeyAction]> {
             self.platform_impl.wl_get_hotkeys()
         }

@@ -16,6 +16,7 @@ pub(crate) use wayland::wl_hotkeys_changed_receiver;
 
 enum ThreadMessage {
     WlRegisterHotKeys(Vec<WlNewHotKeyAction>, Sender<crate::Result<()>>),
+    WlUnRegisterHotKeys(Vec<u32>),
     WlGetHotKeys(Sender<Box<[WlHotKeyAction]>>),
 
     RegisterHotKey(HotKey, Sender<crate::Result<()>>),
@@ -108,6 +109,12 @@ impl GlobalHotKeyManager {
         }
 
         Ok(())
+    }
+
+    pub fn wl_unregister_all(&self, ids: &[u32]) {
+        let _ = self
+            .thread_tx
+            .send(ThreadMessage::WlUnRegisterHotKeys(ids.to_vec()));
     }
 
     pub fn wl_get_hotkeys(&self) -> Box<[WlHotKeyAction]> {
