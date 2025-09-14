@@ -36,6 +36,52 @@
 //! The [`wl_have_hotkeys_changed`] function, or its blocking variant
 //! [`wl_wait_for_hotkey_change`], will return true if the user has changed a hotkey since the last
 //! call to either of these functions.
+//!
+//! # Example
+//!
+//! ```no_run
+//! use global_hotkey::{
+//!     hotkey::{Code, HotKey, Modifiers},
+//!     wayland::{wl_wait_for_hotkey_change, WlNewHotKeyAction},
+//!     GlobalHotKeyEvent, GlobalHotKeyManager,
+//! };
+//! 
+//! const MY_ACTION_ID: u32 = 1;
+//! 
+//! fn main() {
+//!     // initialize hotkey manager
+//!     let hotkey_manager = GlobalHotKeyManager::new().unwrap();
+//! 
+//!     // registering an action with CTRL+META+O as the preferred hotkey
+//!     let my_action = WlNewHotKeyAction::new(
+//!         MY_ACTION_ID,
+//!         "Do cool stuff.",
+//!         Some(HotKey::new(
+//!             Some(Modifiers::CONTROL | Modifiers::META),
+//!             Code::KeyO,
+//!         )),
+//!     );
+//! 
+//!     // register all your application's hotkey actions
+//!     hotkey_manager.wl_register_all(&[my_action]).unwrap();
+//! 
+//!     // listening to hotkey change events on another thread
+//!     std::thread::spawn(move || {
+//!         while wl_wait_for_hotkey_change() {
+//!             println!(
+//!                 "The hotkey was changed, here is the new hotkey: {:?}",
+//!                 hotkey_manager.wl_get_hotkeys()
+//!             );
+//!         }
+//!     });
+//! 
+//!     // receiving global hotkey events (i.e. hotkey presses/releases) on main thread
+//!     let event_receiver = GlobalHotKeyEvent::receiver();
+//!     while let Ok(event) = event_receiver.recv() {
+//!         println!("{event:?}");
+//!     }
+//! }
+//! ```
 
 use std::env;
 
