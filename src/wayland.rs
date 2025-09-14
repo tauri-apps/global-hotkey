@@ -39,9 +39,17 @@
 //!
 //! Unregister hotkey actions using
 //! [`GlobalHotKeyManager::wl_unregister_all()`](crate::GlobalHotKeyManager::wl_unregister_all).
-//! Note that this doesn't necessarily delete any hotkey actions from the user's system's settings,
-//! it just causes events from it be ignored. Users can delete the hotkey action later in their
-//! system's settings.
+//!
+//! # Caveats
+//!
+//! - [`GlobalHotKeyManager::wl_unregister_all()`](crate::GlobalHotKeyManager::wl_unregister_all)
+//!   doesn't necessarily delete any hotkey actions from the user's system's settings, it just causes
+//!   events from it be ignored. Users can delete the hotkey action later in their system's settings.
+//!
+//! - Your application may need to have a valid app id for any of this to work correctly
+//! (particularly in GNOME as of GNOME 48). See the [app id
+//! documentation](https://developer.gnome.org/documentation/tutorials/application-id.html) for
+//! more details.
 //!
 //! # Example
 //!
