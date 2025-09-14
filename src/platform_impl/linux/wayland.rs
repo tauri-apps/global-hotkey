@@ -12,6 +12,7 @@ use ashpd::desktop::{
 };
 use crossbeam_channel::{bounded, Receiver, Select, Sender};
 use futures::{stream::select_all, Stream, StreamExt};
+use itertools::Itertools;
 use keyboard_types::Code;
 use once_cell::sync::Lazy;
 
@@ -100,10 +101,7 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                     );
                 }
                 Ok(ThreadMessage::WlUnRegisterHotKeys(ids)) => {
-                    registered_hotkeys = registered_hotkeys
-                        .into_iter()
-                        .filter(|rh| !ids.contains(&rh.id()))
-                        .collect()
+                    registered_hotkeys.retain(|rh| !ids.contains(&rh.id()))
                 }
                 Ok(ThreadMessage::WlGetHotKeys(tx)) => {
                     let _ = tx.send(registered_hotkeys.clone().into());
@@ -196,12 +194,18 @@ async fn reregister_hotkeys<'a>(
 
     // reregister all hotkeys in registered_hotkeys, plus everything in new_hotkeys that hasn't
     // already been registered
-    let hotkeys_to_register = new_hotkeys
+    let hotkeys_to_register = registered_hotkeys
         .iter()
-        .filter(|&nh| !registered_hotkeys.iter().any(|rh| rh.id() == nh.id()))
         .cloned()
         .map(Into::into)
-        .chain(registered_hotkeys.iter().cloned().map(Into::into))
+        .chain(
+            new_hotkeys
+                .iter()
+                .unique_by(|nh| nh.id())
+                .filter(|&nh| !registered_hotkeys.iter().any(|rh| rh.id() == nh.id()))
+                .cloned()
+                .map(Into::into),
+        )
         .collect::<Vec<NewShortcut>>();
 
     // not handling error from BindShortcuts due to GNOME 48 bug (fixed in GNOME 49):
