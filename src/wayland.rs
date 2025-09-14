@@ -37,6 +37,12 @@
 //! [`wl_wait_for_hotkey_change`], will return true if the user has changed a hotkey since the last
 //! call to either of these functions.
 //!
+//! Unregister hotkey actions using
+//! [`GlobalHotKeyManager::wl_unregister_all()`](crate::GlobalHotKeyManager::wl_unregister_all).
+//! Note that this doesn't necessarily delete any hotkey actions from the user's system's settings,
+//! it just causes events from it be ignored. Users can delete the hotkey action later in their
+//! system's settings.
+//!
 //! # Example
 //!
 //! ```no_run
