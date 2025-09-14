@@ -13,7 +13,7 @@ use ashpd::desktop::{
 use crossbeam_channel::{bounded, Receiver, Select, Sender};
 use futures::{stream::select_all, Stream, StreamExt};
 use itertools::Itertools;
-use keyboard_types::Code;
+use keyboard_types::{Code, Modifiers};
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -285,7 +285,7 @@ fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {
     if hotkey.mods.alt() {
         mods += "ALT+";
     }
-    if hotkey.mods.meta() {
+    if hotkey.mods.contains(Modifiers::SUPER) {
         mods += "LOGO+";
     }
 
@@ -396,4 +396,25 @@ fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {
     };
 
     Some(mods + keycode)
+}
+
+#[allow(unused)]
+mod tests {
+    use keyboard_types::Modifiers;
+
+    use super::*;
+
+    #[test]
+    fn hotkey_to_wl_trigger_test() {
+        let modifiers = Modifiers::SHIFT | Modifiers::META;
+        let trigger_desc = hotkey_to_wayland_trigger(HotKey::new(Some(modifiers), Code::KeyD));
+        assert_eq!(trigger_desc.as_deref(), Some("SHIFT+LOGO+D"));
+
+        let modifiers = Modifiers::SHIFT | Modifiers::META | Modifiers::CONTROL | Modifiers::ALT;
+        let trigger_desc = hotkey_to_wayland_trigger(HotKey::new(Some(modifiers), Code::Backslash));
+        assert_eq!(
+            trigger_desc.as_deref(),
+            Some("CTRL+SHIFT+ALT+LOGO+backslash")
+        )
+    }
 }

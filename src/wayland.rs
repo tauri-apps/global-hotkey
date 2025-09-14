@@ -47,9 +47,9 @@
 //!   events from it be ignored. Users can delete the hotkey action later in their system's settings.
 //!
 //! - Your application may need to have a valid app id for any of this to work correctly
-//! (particularly in GNOME as of GNOME 48). See the [app id
-//! documentation](https://developer.gnome.org/documentation/tutorials/application-id.html) for
-//! more details.
+//!   (particularly in GNOME as of GNOME 48). See the [app id
+//!   documentation](https://developer.gnome.org/documentation/tutorials/application-id.html) for
+//!   more details.
 //!
 //! # Example
 //!
