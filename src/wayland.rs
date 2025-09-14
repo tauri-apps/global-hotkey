@@ -45,13 +45,13 @@
 //!     wayland::{wl_wait_for_hotkey_change, WlNewHotKeyAction},
 //!     GlobalHotKeyEvent, GlobalHotKeyManager,
 //! };
-//! 
+//!
 //! const MY_ACTION_ID: u32 = 1;
-//! 
+//!
 //! fn main() {
 //!     // initialize hotkey manager
 //!     let hotkey_manager = GlobalHotKeyManager::new().unwrap();
-//! 
+//!
 //!     // registering an action with CTRL+META+O as the preferred hotkey
 //!     let my_action = WlNewHotKeyAction::new(
 //!         MY_ACTION_ID,
@@ -61,10 +61,10 @@
 //!             Code::KeyO,
 //!         )),
 //!     );
-//! 
+//!
 //!     // register all your application's hotkey actions
 //!     hotkey_manager.wl_register_all(&[my_action]).unwrap();
-//! 
+//!
 //!     // listening to hotkey change events on another thread
 //!     std::thread::spawn(move || {
 //!         while wl_wait_for_hotkey_change() {
@@ -74,7 +74,7 @@
 //!             );
 //!         }
 //!     });
-//! 
+//!
 //!     // receiving global hotkey events (i.e. hotkey presses/releases) on main thread
 //!     let event_receiver = GlobalHotKeyEvent::receiver();
 //!     while let Ok(event) = event_receiver.recv() {
