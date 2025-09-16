@@ -190,7 +190,7 @@ impl GlobalHotKeyManager {
     }
 
     not_on_linux_cfg! {
-        pub fn wl_unregister_all(&self, hotkey_action_ids: &[u32]) {}
+        pub fn wl_unregister_all(&self, _hotkey_action_ids: &[u32]) {}
     }
 
     on_linux_cfg! {
