@@ -13,7 +13,7 @@ use ashpd::{
     },
     AppID,
 };
-use crossbeam_channel::{bounded, Receiver, Select, Sender};
+use crossbeam_channel::{bounded, unbounded, Receiver, Select, Sender};
 use futures::{stream::select_all, Stream, StreamExt};
 use itertools::Itertools;
 use keyboard_types::{Code, Modifiers};
@@ -32,23 +32,38 @@ enum GSEvent {
     Changed(ShortcutsChanged),
 }
 
-#[tokio::main]
-pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
-    let proxy = GlobalShortcuts::new()
-        .await
-        .map_err(|e| format!("Failed to start global shortcuts portal proxy: {e}"))?;
-    let mut session = proxy
-        .create_session()
-        .await
-        .map_err(|e| format!("Failed to start global shortcuts portal session: {e}"))?;
+struct GlobalShortcutsState<'a> {
+    proxy: GlobalShortcuts<'a>,
+    session: Session<'a, GlobalShortcuts<'a>>,
+}
 
-    let mut registered_hotkeys = Vec::<WlHotKeyAction>::new();
-    let mut hotkey_states = HashMap::<u32, bool>::new();
+impl GlobalShortcutsState<'_> {
+    pub async fn new(event_sender: Sender<GSEvent>) -> Result<Self, String> {
+        let proxy = GlobalShortcuts::new()
+            .await
+            .map_err(|e| format!("Failed to start global shortcuts portal proxy: {e}"))?;
 
-    let mut has_app_id_initialized = false;
+        let session = proxy
+            .create_session()
+            .await
+            .map_err(|e| format!("Failed to start global shortcuts portal session: {e}"))?;
 
-    // combining the activated, deactivated, and shortcuts changed events into one stream
-    let mut gs_event_stream: Box<dyn Stream<Item = GSEvent> + Unpin + Send> = {
+        // combining the activated, deactivated, and shortcuts changed events into one stream
+        let mut gs_event_stream = Self::get_event_stream(&proxy).await?;
+
+        // listening for global shortcuts events in a separate thread
+        tokio::spawn(async move {
+            while let Some(ev) = gs_event_stream.next().await {
+                let _ = event_sender.send(ev);
+            }
+        });
+
+        Ok(Self { proxy, session })
+    }
+
+    async fn get_event_stream(
+        proxy: &GlobalShortcuts<'_>,
+    ) -> Result<Box<dyn Stream<Item = GSEvent> + Unpin + Send>, String> {
         let activated: Box<dyn Stream<Item = GSEvent> + Unpin + Send> = Box::new(
             proxy
                 .receive_activated()
@@ -79,59 +94,50 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                 .map(GSEvent::Changed),
         );
 
-        Box::new(select_all([activated, deactivated, changed]))
-    };
+        Ok(Box::new(select_all([activated, deactivated, changed])))
+    }
+}
 
-    let (tx, gs_rx) = crossbeam_channel::unbounded();
+#[tokio::main]
+pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
+    let mut registered_hotkeys = Vec::<WlHotKeyAction>::new();
+    let mut hotkey_states = HashMap::<u32, bool>::new();
 
-    // listening for global shortcuts events in a separate thread
-    tokio::spawn(async move {
-        while let Some(ev) = gs_event_stream.next().await {
-            let _ = tx.send(ev);
-        }
-    });
+    let (gs_event_sender, gs_event_receiver) = unbounded();
+    let mut gs_state: Option<GlobalShortcutsState> = None;
 
     let mut select = Select::new();
     let thread_rx_idx = select.recv(&thread_rx);
-    let gs_rx_idx = select.recv(&gs_rx);
+    let gs_rx_idx = select.recv(&gs_event_receiver);
     loop {
         let selected_oper = select.select();
         match selected_oper.index() {
             i if i == thread_rx_idx => match selected_oper.recv(&thread_rx) {
                 Ok(ThreadMessage::WlRegisterHotKeys(hotkeys, app_id, tx)) => {
-                    if !has_app_id_initialized {
-                        let _ = match AppID::from_str(&app_id) {
-                            Ok(app_id) => match ashpd::register_host_app(app_id).await {
-                                Ok(_) => {
-                                    has_app_id_initialized = true;
-                                    tx.send(
-                                        reregister_hotkeys(
-                                            &proxy,
-                                            &mut session,
-                                            &mut registered_hotkeys,
-                                            &hotkeys,
-                                        )
-                                        .await,
-                                    )
-                                }
-                                Err(e) => tx.send(Err(Error::FailedToRegister(format!(
-                                    "Failed to register app id: {e:?}"
-                                )))),
-                            },
-                            Err(e) => tx.send(Err(Error::FailedToRegister(format!(
-                                "Failed to parse app id: {e:?}",
-                            )))),
-                        };
+                    if let Some(gs) = &mut gs_state {
+                        let _ = tx
+                            .send(reregister_hotkeys(gs, &mut registered_hotkeys, &hotkeys).await);
                     } else {
-                        let _ = tx.send(
-                            reregister_hotkeys(
-                                &proxy,
-                                &mut session,
-                                &mut registered_hotkeys,
-                                &hotkeys,
-                            )
-                            .await,
-                        );
+                        let _ = match init_global_shortcuts_with_app_id(
+                            app_id,
+                            gs_event_sender.clone(),
+                        )
+                        .await
+                        {
+                            Ok(mut new_gs) => {
+                                let res = tx.send(
+                                    reregister_hotkeys(
+                                        &mut new_gs,
+                                        &mut registered_hotkeys,
+                                        &hotkeys,
+                                    )
+                                    .await,
+                                );
+                                gs_state = Some(new_gs);
+                                res
+                            }
+                            Err(e) => tx.send(Err(Error::FailedToRegister(e))),
+                        };
                     }
                 }
                 Ok(ThreadMessage::WlUnRegisterHotKeys(ids)) => {
@@ -144,7 +150,7 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                 _ => {}
             },
             i if i == gs_rx_idx => {
-                match selected_oper.recv(&gs_rx) {
+                match selected_oper.recv(&gs_event_receiver) {
                     Ok(GSEvent::Activated(activated)) => {
                         // only send event if (1) shortcut id can be parsed as u32 and (2) if the
                         // shortcut has been registered
@@ -210,17 +216,30 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
     }
 }
 
+async fn init_global_shortcuts_with_app_id<'a>(
+    app_id: impl Into<String>,
+    event_sender: Sender<GSEvent>,
+) -> Result<GlobalShortcutsState<'a>, String> {
+    let app_id =
+        AppID::from_str(&app_id.into()).map_err(|e| format!("Failed to parse app id: {e}"))?;
+
+    ashpd::register_host_app(app_id)
+        .await
+        .map_err(|e| format!("Failed to register app id: {e}"))?;
+
+    GlobalShortcutsState::new(event_sender).await
+}
+
 async fn reregister_hotkeys<'a>(
-    proxy: &GlobalShortcuts<'a>,
-    session: &mut Session<'a, GlobalShortcuts<'a>>,
+    gs_state: &mut GlobalShortcutsState<'_>,
     registered_hotkeys: &mut Vec<WlHotKeyAction>,
     new_hotkeys: &[WlNewHotKeyAction],
 ) -> Result<(), Error> {
-    session.close().await.map_err(|e| {
+    gs_state.session.close().await.map_err(|e| {
         Error::FailedToRegister(format!("Failed to close old global shortcuts session: {e}"))
     })?;
 
-    *session = proxy.create_session().await.map_err(|e| {
+    gs_state.session = gs_state.proxy.create_session().await.map_err(|e| {
         Error::FailedToRegister(format!(
             "Failed to start global shortcuts portal session: {e}"
         ))
@@ -244,14 +263,16 @@ async fn reregister_hotkeys<'a>(
 
     // not handling error from BindShortcuts due to GNOME 48 bug (fixed in GNOME 49):
     // https://gitlab.gnome.org/GNOME/xdg-desktop-portal-gnome/-/issues/177
-    let _ = proxy
-        .bind_shortcuts(session, &hotkeys_to_register, None)
+    let _ = gs_state
+        .proxy
+        .bind_shortcuts(&gs_state.session, &hotkeys_to_register, None)
         .await
         .map(|r| r.response());
 
     // update registered_shortcuts array
-    if let Ok(ls) = proxy
-        .list_shortcuts(session)
+    if let Ok(ls) = gs_state
+        .proxy
+        .list_shortcuts(&gs_state.session)
         .await
         .and_then(|r| r.response())
     {
