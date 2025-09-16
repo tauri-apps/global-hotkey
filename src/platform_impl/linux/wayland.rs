@@ -220,17 +220,23 @@ async fn init_global_shortcuts_with_app_id<'a>(
     app_id: impl Into<String>,
     event_sender: Sender<GSEvent>,
 ) -> Result<GlobalShortcutsState<'a>, String> {
-    let app_id =
-        AppID::from_str(&app_id.into()).map_err(|e| format!("Failed to parse app id: {e}"))?;
-
-    ashpd::register_host_app(app_id)
-        .await
-        .map_err(|e| format!("Failed to register app id: {e}"))?;
+    match AppID::from_str(&app_id.into()) {
+        Ok(app_id) => {
+            if let Err(_e) = ashpd::register_host_app(app_id).await {
+                #[cfg(feature = "tracing")]
+                tracing::warn!("Failed to register app id: {:?}", _e);
+            }
+        }
+        Err(_e) => {
+            #[cfg(feature = "tracing")]
+            tracing::warn!("Failed to parse app id: {:?}", _e);
+        }
+    }
 
     GlobalShortcutsState::new(event_sender).await
 }
 
-async fn reregister_hotkeys<'a>(
+async fn reregister_hotkeys(
     gs_state: &mut GlobalShortcutsState<'_>,
     registered_hotkeys: &mut Vec<WlHotKeyAction>,
     new_hotkeys: &[WlNewHotKeyAction],

@@ -23,7 +23,7 @@
 //!
 //! # How to Use this Module
 //!
-//! You can verify if the user is using Wayland with the [`using_wayland()`] function.
+//! You can verify if the user is using Wayland with the [`using_wayland`] function.
 //!
 //! Register all your actions using
 //! [`GlobalHotKeyManager::wl_register_all`](crate::GlobalHotKeyManager::wl_register_all). This
@@ -38,18 +38,13 @@
 //! call to either of these functions.
 //!
 //! Unregister hotkey actions using
-//! [`GlobalHotKeyManager::wl_unregister_all()`](crate::GlobalHotKeyManager::wl_unregister_all).
+//! [`GlobalHotKeyManager::wl_unregister_all`](crate::GlobalHotKeyManager::wl_unregister_all).
 //!
-//! # Caveats
+//! # Notes
 //!
-//! - [`GlobalHotKeyManager::wl_unregister_all()`](crate::GlobalHotKeyManager::wl_unregister_all)
-//!   doesn't necessarily delete any hotkey actions from the user's system's settings, it just causes
-//!   events from it be ignored. Users can delete the hotkey action later in their system's settings.
-//!
-//! - Your application may need to have a valid app id for any of this to work correctly
-//!   (particularly in GNOME as of GNOME 48). See the [app id
-//!   documentation](https://developer.gnome.org/documentation/tutorials/application-id.html) for
-//!   more details.
+//! - If you can't register any shortcuts, make sure:
+//!     - You are running an xdg-desktop-portal backend that supports global shortcuts.
+//!     - The app id is set correctly. See the documentation for [`GlobalHotKeyManager::wl_register_all`](crate::GlobalHotKeyManager::wl_register_all) for more information.
 //!
 //! # Example
 //!
