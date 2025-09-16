@@ -15,7 +15,7 @@ mod x11;
 pub(crate) use wayland::wl_hotkeys_changed_receiver;
 
 enum ThreadMessage {
-    WlRegisterHotKeys(Vec<WlNewHotKeyAction>, Sender<crate::Result<()>>),
+    WlRegisterHotKeys(Vec<WlNewHotKeyAction>, String, Sender<crate::Result<()>>),
     WlUnRegisterHotKeys(Vec<u32>),
     WlGetHotKeys(Sender<Box<[WlHotKeyAction]>>),
 
@@ -98,11 +98,17 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn wl_register_all(&self, hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
+    pub fn wl_register_all(
+        &self,
+        app_id: impl Into<String>,
+        hotkeys: &[WlNewHotKeyAction],
+    ) -> crate::Result<()> {
         let (tx, rx) = crossbeam_channel::bounded(1);
-        let _ = self
-            .thread_tx
-            .send(ThreadMessage::WlRegisterHotKeys(hotkeys.to_vec(), tx));
+        let _ = self.thread_tx.send(ThreadMessage::WlRegisterHotKeys(
+            hotkeys.to_vec(),
+            app_id.into(),
+            tx,
+        ));
 
         if let Ok(result) = rx.recv() {
             result?;

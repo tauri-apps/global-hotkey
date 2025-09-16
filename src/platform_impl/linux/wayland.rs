@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use std::{collections::HashMap, num::ParseIntError};
+use std::{collections::HashMap, num::ParseIntError, str::FromStr};
 
-use ashpd::desktop::{
-    global_shortcuts::{
-        Activated, Deactivated, GlobalShortcuts, NewShortcut, Shortcut, ShortcutsChanged,
+use ashpd::{
+    desktop::{
+        global_shortcuts::{
+            Activated, Deactivated, GlobalShortcuts, NewShortcut, Shortcut, ShortcutsChanged,
+        },
+        Session,
     },
-    Session,
+    AppID,
 };
 use crossbeam_channel::{bounded, Receiver, Select, Sender};
 use futures::{stream::select_all, Stream, StreamExt};
@@ -17,11 +20,10 @@ use keyboard_types::{Code, Modifiers};
 use once_cell::sync::Lazy;
 
 use crate::{
-    error::Error,
     hotkey::HotKey,
     platform_impl::platform::ThreadMessage,
     wayland::{WlHotKeyAction, WlNewHotKeyAction},
-    GlobalHotKeyEvent, HotKeyState,
+    Error, GlobalHotKeyEvent, HotKeyState,
 };
 
 enum GSEvent {
@@ -42,6 +44,8 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
 
     let mut registered_hotkeys = Vec::<WlHotKeyAction>::new();
     let mut hotkey_states = HashMap::<u32, bool>::new();
+
+    let mut has_app_id_initialized = false;
 
     // combining the activated, deactivated, and shortcuts changed events into one stream
     let mut gs_event_stream: Box<dyn Stream<Item = GSEvent> + Unpin + Send> = {
@@ -94,11 +98,41 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
         let selected_oper = select.select();
         match selected_oper.index() {
             i if i == thread_rx_idx => match selected_oper.recv(&thread_rx) {
-                Ok(ThreadMessage::WlRegisterHotKeys(hotkeys, tx)) => {
-                    let _ = tx.send(
-                        reregister_hotkeys(&proxy, &mut session, &mut registered_hotkeys, &hotkeys)
+                Ok(ThreadMessage::WlRegisterHotKeys(hotkeys, app_id, tx)) => {
+                    if !has_app_id_initialized {
+                        let _ = match AppID::from_str(&app_id) {
+                            Ok(app_id) => match ashpd::register_host_app(app_id).await {
+                                Ok(_) => {
+                                    has_app_id_initialized = true;
+                                    tx.send(
+                                        reregister_hotkeys(
+                                            &proxy,
+                                            &mut session,
+                                            &mut registered_hotkeys,
+                                            &hotkeys,
+                                        )
+                                        .await,
+                                    )
+                                }
+                                Err(e) => tx.send(Err(Error::FailedToRegister(format!(
+                                    "Failed to register app id: {e:?}"
+                                )))),
+                            },
+                            Err(e) => tx.send(Err(Error::FailedToRegister(format!(
+                                "Failed to parse app id: {e:?}",
+                            )))),
+                        };
+                    } else {
+                        let _ = tx.send(
+                            reregister_hotkeys(
+                                &proxy,
+                                &mut session,
+                                &mut registered_hotkeys,
+                                &hotkeys,
+                            )
                             .await,
-                    );
+                        );
+                    }
                 }
                 Ok(ThreadMessage::WlUnRegisterHotKeys(ids)) => {
                     registered_hotkeys.retain(|rh| !ids.contains(&rh.id()))
