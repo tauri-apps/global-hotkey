@@ -227,7 +227,7 @@ impl GlobalHotKeyManager {
     }
 
     not_on_linux_cfg! {
-        fn wl_register_all_impl(&self, _hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
+        fn wl_register_all_impl(&self, _app_id: impl Into<String>, _hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
             Ok(())
         }
     }
