@@ -160,8 +160,12 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                             .ok()
                             .filter(|id| registered_hotkeys.iter().any(|rh| rh.id() == *id))
                         {
-                            // only send event if not already pressed
-                            if hotkey_states.get(&id).filter(|pressed| !*pressed).is_some() {
+                            // only send event if not already pressed (or an event has not yet been
+                            // received for this hotkey)
+                            let hotkey_state_opt = hotkey_states.get(&id);
+                            if hotkey_state_opt.is_none()
+                                || hotkey_state_opt.filter(|pressed| !*pressed).is_some()
+                            {
                                 // update hotkey state before sending event
                                 hotkey_states.insert(id, true);
 
