@@ -194,59 +194,29 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                             });
                         }
                     }
-                    Ok(GSEvent::Changed(shortcuts_changed)) => {
-                        let mut change = false;
-                        for new in shortcuts_changed.shortcuts() {
-                            if let Some(hk) = registered_hotkeys
-                                .iter_mut()
-                                .find(|rh| rh.id().to_string() == new.id())
+                    Ok(GSEvent::Changed(new_event)) => {
+                        // strip out shortcuts that weren't already registered and convert them to
+                        // WlChangedHotkeys
+                        let new_shortcuts: Vec<WlChangedHotKey> = new_event
+                            .shortcuts()
+                            .into_iter()
+                            .filter_map(|ns| WlChangedHotKey::try_from(ns.clone()).ok())
+                            .filter(|ns| registered_hotkeys.iter().any(|rh| rh.id == ns.id))
+                            .collect();
+
+                        // change registered shortcuts
+                        let mut something_changed = false;
+                        for new in &new_shortcuts {
+                            if let Some(hk) =
+                                registered_hotkeys.iter_mut().find(|rh| rh.id() == new.id)
                             {
-                                if let Ok(new_hk) = new.clone().try_into() {
-                                    *hk = new_hk;
-                                    change = true;
-                                }
+                                hk.hotkey_description = new.hotkey_description.clone();
+                                something_changed = true;
                             }
                         }
 
-                        if change {
-                            let new_shortcuts = shortcuts_changed.shortcuts();
-                            if let Ok(old_ev) = WL_HOTKEYS_CHANGED_CHANNEL.1.try_recv() {
-                                // if there was an event sent previously which wasn't received
-                                // anywhere, then remove it and add all the changed hotkeys from it
-                                // to the new event (excluding any hotkeys that are included in the
-                                // new event)
-                                let changed_hotkeys = old_ev
-                                    .changed_hotkeys
-                                    .into_iter()
-                                    .filter(|old_ch| {
-                                        !new_shortcuts
-                                            .iter()
-                                            .filter_map(|ns| ns.id().parse::<u32>().ok())
-                                            .any(|ns_id| ns_id == old_ch.id)
-                                    })
-                                    .chain(
-                                        new_shortcuts
-                                            .into_iter()
-                                            .filter_map(|ns| ns.clone().try_into().ok()),
-                                    )
-                                    .collect();
-
-                                let _ = WL_HOTKEYS_CHANGED_CHANNEL
-                                    .0
-                                    .send(WlHotKeysChangedEvent { changed_hotkeys });
-                            } else {
-                                let _ = WL_HOTKEYS_CHANGED_CHANNEL.0.send(WlHotKeysChangedEvent {
-                                    changed_hotkeys: new_shortcuts
-                                        .into_iter()
-                                        .filter_map(|ns| {
-                                            Some(WlChangedHotKey {
-                                                id: ns.id().parse::<u32>().ok()?,
-                                                hotkey_description: ns.trigger_description().into(),
-                                            })
-                                        })
-                                        .collect(),
-                                });
-                            }
+                        if something_changed {
+                            WL_HOTKEYS_CHANGED_CHANNEL.0.update_and_send(new_shortcuts);
                         }
                     }
                     Err(_) => {}
@@ -334,10 +304,40 @@ async fn reregister_hotkeys(
     Ok(())
 }
 
+#[derive(Clone)]
+struct WlHotKeysChangedEventSender(Sender<WlHotKeysChangedEvent>);
+
+impl WlHotKeysChangedEventSender {
+    fn update_and_send(&self, new_shortcuts: Vec<WlChangedHotKey>) {
+        let Ok(old_ev) = WL_HOTKEYS_CHANGED_CHANNEL.1.try_recv() else {
+            let _ = self.0.send(WlHotKeysChangedEvent {
+                changed_hotkeys: new_shortcuts,
+            });
+            return;
+        };
+
+        // if there was an event sent previously which wasn't received
+        // anywhere, then remove it and add all the changed hotkeys from it
+        // to the new event (excluding any hotkeys that are included in the
+        // new event)
+        let changed_hotkeys = old_ev
+            .changed_hotkeys
+            .into_iter()
+            .filter(|old_ch| !new_shortcuts.iter().any(|ns| ns.id == old_ch.id))
+            .chain(new_shortcuts.iter().cloned())
+            .collect();
+
+        let _ = self.0.send(WlHotKeysChangedEvent { changed_hotkeys });
+    }
+}
+
 static WL_HOTKEYS_CHANGED_CHANNEL: Lazy<(
-    Sender<WlHotKeysChangedEvent>,
+    WlHotKeysChangedEventSender,
     Receiver<WlHotKeysChangedEvent>,
-)> = Lazy::new(|| bounded(1));
+)> = Lazy::new(|| {
+    let (tx, rx) = bounded(1);
+    (WlHotKeysChangedEventSender(tx), rx)
+});
 
 pub(crate) fn wl_hotkeys_changed_receiver() -> Receiver<WlHotKeysChangedEvent> {
     WL_HOTKEYS_CHANGED_CHANNEL.1.clone()
@@ -517,5 +517,39 @@ mod tests {
             trigger_desc.as_deref(),
             Some("CTRL+SHIFT+ALT+LOGO+backslash")
         )
+    }
+
+    #[test]
+    fn hotkey_change_event_updates_correctly() {
+        let sender = WL_HOTKEYS_CHANGED_CHANNEL.0.clone();
+        let receiver = WL_HOTKEYS_CHANGED_CHANNEL.1.clone();
+        let first_event = vec![
+            WlChangedHotKey {
+                id: 1,
+                hotkey_description: "CTRL+A".into(),
+            },
+            WlChangedHotKey {
+                id: 2,
+                hotkey_description: "CTRL+B".into(),
+            },
+        ];
+        sender.update_and_send(first_event);
+
+        let second_event = vec![WlChangedHotKey {
+            id: 1,
+            hotkey_description: "CTRL+C".into(),
+        }];
+        sender.update_and_send(second_event);
+
+        let ev = receiver.try_recv().unwrap();
+        assert_eq!(ev.changed_hotkeys.len(), 2);
+        assert!(ev.changed_hotkeys.contains(&WlChangedHotKey {
+            id: 1,
+            hotkey_description: "CTRL+C".into(),
+        }));
+        assert!(ev.changed_hotkeys.contains(&WlChangedHotKey {
+            id: 2,
+            hotkey_description: "CTRL+B".into(),
+        }));
     }
 }

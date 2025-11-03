@@ -142,6 +142,7 @@ impl WlHotKeysChangedEvent {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct WlChangedHotKey {
     pub id: u32,
     pub hotkey_description: String,
