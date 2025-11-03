@@ -22,7 +22,7 @@ use once_cell::sync::Lazy;
 use crate::{
     hotkey::HotKey,
     platform_impl::platform::ThreadMessage,
-    wayland::{WlHotKeyAction, WlNewHotKeyAction},
+    wayland::{WlChangedHotKey, WlHotKeyAction, WlHotKeysChangedEvent, WlNewHotKeyAction},
     Error, GlobalHotKeyEvent, HotKeyState,
 };
 
@@ -209,7 +209,44 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                         }
 
                         if change {
-                            let _ = WL_HOTKEYS_CHANGED_CHANNEL.0.send(WlHotKeysChangedEvent);
+                            let new_shortcuts = shortcuts_changed.shortcuts();
+                            if let Ok(old_ev) = WL_HOTKEYS_CHANGED_CHANNEL.1.try_recv() {
+                                // if there was an event sent previously which wasn't received
+                                // anywhere, then remove it and add all the changed hotkeys from it
+                                // to the new event (excluding any hotkeys that are included in the
+                                // new event)
+                                let changed_hotkeys = old_ev
+                                    .changed_hotkeys
+                                    .into_iter()
+                                    .filter(|old_ch| {
+                                        !new_shortcuts
+                                            .iter()
+                                            .filter_map(|ns| ns.id().parse::<u32>().ok())
+                                            .any(|ns_id| ns_id == old_ch.id)
+                                    })
+                                    .chain(
+                                        new_shortcuts
+                                            .into_iter()
+                                            .filter_map(|ns| ns.clone().try_into().ok()),
+                                    )
+                                    .collect();
+
+                                let _ = WL_HOTKEYS_CHANGED_CHANNEL
+                                    .0
+                                    .send(WlHotKeysChangedEvent { changed_hotkeys });
+                            } else {
+                                let _ = WL_HOTKEYS_CHANGED_CHANNEL.0.send(WlHotKeysChangedEvent {
+                                    changed_hotkeys: new_shortcuts
+                                        .into_iter()
+                                        .filter_map(|ns| {
+                                            Some(WlChangedHotKey {
+                                                id: ns.id().parse::<u32>().ok()?,
+                                                hotkey_description: ns.trigger_description().into(),
+                                            })
+                                        })
+                                        .collect(),
+                                });
+                            }
                         }
                     }
                     Err(_) => {}
@@ -297,7 +334,6 @@ async fn reregister_hotkeys(
     Ok(())
 }
 
-pub struct WlHotKeysChangedEvent;
 static WL_HOTKEYS_CHANGED_CHANNEL: Lazy<(
     Sender<WlHotKeysChangedEvent>,
     Receiver<WlHotKeysChangedEvent>,

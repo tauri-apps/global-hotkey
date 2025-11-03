@@ -76,9 +76,9 @@
 //!
 //!     // listening to hotkey change events on another thread
 //!     std::thread::spawn(move || {
-//!         while wl_wait_for_hotkey_change() {
+//!         while let Some(new_hotkeys) = wl_wait_for_hotkey_change() {
 //!             println!(
-//!                 "The hotkey was changed, here is the new hotkey: {:?}",
+//!                 "Some hotkeys were changed, here is what changed: {:?}",
 //!                 hotkey_manager.wl_get_hotkeys()
 //!             );
 //!         }
@@ -92,7 +92,9 @@
 //! }
 //! ```
 
-use std::env;
+use std::{env, num::ParseIntError};
+
+use ashpd::desktop::global_shortcuts::Shortcut;
 
 use crate::{
     hotkey::HotKey,
@@ -111,43 +113,67 @@ pub fn using_wayland() -> bool {
 
 /// Returns true if user has changed hotkeys since the last call to [`wl_have_hotkeys_changed`] or
 /// [`wl_wait_for_hotkey_change`].
-pub fn wl_have_hotkeys_changed() -> bool {
+pub fn wl_have_hotkeys_changed() -> Option<WlHotKeysChangedEvent> {
     wl_have_hotkeys_changed_impl()
 }
 
 /// Same as [`wl_have_hotkeys_changed`] except that this function will block until a hotkey change
 /// occurs.
 ///
-/// Returns `false` if not using Linux/BSD and Wayland.
-pub fn wl_wait_for_hotkey_change() -> bool {
+/// Returns `None` if not using Linux/BSD and Wayland.
+pub fn wl_wait_for_hotkey_change() -> Option<WlHotKeysChangedEvent> {
     wl_wait_for_hotkey_change_impl()
 }
 
 on_linux_cfg! {
-    fn wl_have_hotkeys_changed_impl() -> bool {
-        using_wayland() && wl_hotkeys_changed_receiver().try_recv().is_ok()
-    }
-}
-
-not_on_linux_cfg! {
-    fn wl_have_hotkeys_changed_impl() -> bool {
-        false
-    }
-}
-
-on_linux_cfg! {
-    fn wl_wait_for_hotkey_change_impl() -> bool {
+    fn wl_have_hotkeys_changed_impl() -> Option<WlHotKeysChangedEvent> {
         if using_wayland() {
-            wl_hotkeys_changed_receiver().recv().is_ok()
+            wl_hotkeys_changed_receiver().try_recv().ok()
         } else {
-            false
+            None
         }
     }
 }
 
 not_on_linux_cfg! {
-    fn wl_wait_for_hotkey_change_impl() -> bool {
+    fn wl_have_hotkeys_changed_impl() -> Option<WlHotKeysChangedEvent> {
         false
+    }
+}
+
+on_linux_cfg! {
+    fn wl_wait_for_hotkey_change_impl() -> Option<WlHotKeysChangedEvent> {
+        if using_wayland() {
+            wl_hotkeys_changed_receiver().recv().ok()
+        } else {
+            None
+        }
+    }
+}
+
+not_on_linux_cfg! {
+    fn wl_wait_for_hotkey_change_impl() -> Option<WlHotKeysChangedEvent> {
+        None
+    }
+}
+
+pub struct WlHotKeysChangedEvent {
+    pub changed_hotkeys: Vec<WlChangedHotKey>,
+}
+
+pub struct WlChangedHotKey {
+    pub id: u32,
+    pub hotkey_description: String,
+}
+
+impl TryFrom<Shortcut> for WlChangedHotKey {
+    type Error = ParseIntError;
+
+    fn try_from(value: Shortcut) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: value.id().parse::<u32>()?,
+            hotkey_description: value.trigger_description().into(),
+        })
     }
 }
 
