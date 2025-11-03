@@ -51,7 +51,7 @@
 //! ```no_run
 //! use global_hotkey::{
 //!     hotkey::{Code, HotKey, Modifiers},
-//!     wayland::{wl_wait_for_hotkey_change, WlNewHotKeyAction},
+//!     wayland::{WlNewHotKeyAction, WlHotKeysChangedEvent},
 //!     GlobalHotKeyEvent, GlobalHotKeyManager,
 //! };
 //!
@@ -74,9 +74,13 @@
 //!     // register all your application's hotkey actions
 //!     hotkey_manager.wl_register_all("com.github.example.ExampleAppID", &[my_action]).unwrap();
 //!
-//!     // listening to hotkey change events on another thread
+//!     // listening to change hotkey events on another thread like how you would listen to hotkey
+//!     // events.
 //!     std::thread::spawn(move || {
-//!         while let Some(new_hotkeys) = wl_wait_for_hotkey_change() {
+//!         let Some(receiver) = WlHotKeysChangedEvent::receiver() else {
+//!             return;
+//!         };
+//!         while let Ok(new_hotkeys) = receiver.recv() {
 //!             println!(
 //!                 "Some hotkeys were changed, here is what changed: {:?}",
 //!                 hotkey_manager.wl_get_hotkeys()
@@ -92,6 +96,7 @@
 //! }
 //! ```
 
+use crossbeam_channel::Receiver;
 use std::{env, num::ParseIntError};
 
 use ashpd::desktop::global_shortcuts::Shortcut;
@@ -111,54 +116,30 @@ pub fn using_wayland() -> bool {
     on_linux!() && env::var("WAYLAND_DISPLAY").is_ok()
 }
 
-/// Returns true if user has changed hotkeys since the last call to [`wl_have_hotkeys_changed`] or
-/// [`wl_wait_for_hotkey_change`].
-pub fn wl_have_hotkeys_changed() -> Option<WlHotKeysChangedEvent> {
-    wl_have_hotkeys_changed_impl()
-}
-
-/// Same as [`wl_have_hotkeys_changed`] except that this function will block until a hotkey change
-/// occurs.
-///
-/// Returns `None` if not using Linux/BSD and Wayland.
-pub fn wl_wait_for_hotkey_change() -> Option<WlHotKeysChangedEvent> {
-    wl_wait_for_hotkey_change_impl()
-}
-
-on_linux_cfg! {
-    fn wl_have_hotkeys_changed_impl() -> Option<WlHotKeysChangedEvent> {
-        if using_wayland() {
-            wl_hotkeys_changed_receiver().try_recv().ok()
-        } else {
-            None
-        }
-    }
-}
-
-not_on_linux_cfg! {
-    fn wl_have_hotkeys_changed_impl() -> Option<WlHotKeysChangedEvent> {
-        false
-    }
-}
-
-on_linux_cfg! {
-    fn wl_wait_for_hotkey_change_impl() -> Option<WlHotKeysChangedEvent> {
-        if using_wayland() {
-            wl_hotkeys_changed_receiver().recv().ok()
-        } else {
-            None
-        }
-    }
-}
-
-not_on_linux_cfg! {
-    fn wl_wait_for_hotkey_change_impl() -> Option<WlHotKeysChangedEvent> {
-        None
-    }
-}
-
 pub struct WlHotKeysChangedEvent {
     pub changed_hotkeys: Vec<WlChangedHotKey>,
+}
+
+impl WlHotKeysChangedEvent {
+    /// Gets receiver for WlHotKeysChangedEvent, which will allow you to listen to any changes the
+    /// user makes to the registered hotkeys.
+    ///
+    /// Will return `None` if not using Linux and Wayland.
+    pub fn receiver() -> Option<Receiver<WlHotKeysChangedEvent>> {
+        Self::receiver_impl()
+    }
+
+    on_linux_cfg! {
+        fn receiver_impl() -> Option<Receiver<WlHotKeysChangedEvent>> {
+            Some(wl_hotkeys_changed_receiver()).filter(|_| using_wayland())
+        }
+    }
+
+    not_on_linux_cfg! {
+        fn receiver_impl() -> Receiver<WlHotKeysChangedEvent> {
+            None
+        }
+    }
 }
 
 pub struct WlChangedHotKey {
