@@ -33,9 +33,8 @@
 //! Use [`GlobalHotKeyManager::wl_get_hotkeys`](crate::GlobalHotKeyManager::wl_get_hotkeys) to get
 //! the current list of registered hotkeys.
 //!
-//! The [`wl_have_hotkeys_changed`] function, or its blocking variant
-//! [`wl_wait_for_hotkey_change`], will return true if the user has changed a hotkey since the last
-//! call to either of these functions.
+//! Use [`WlHotKeysChangedEvent::receiver()`] to get notified whenever the user changes a hotkey
+//! while your app is running.
 //!
 //! Unregister hotkey actions using
 //! [`GlobalHotKeyManager::wl_unregister_all`](crate::GlobalHotKeyManager::wl_unregister_all).
@@ -74,8 +73,8 @@
 //!     // register all your application's hotkey actions
 //!     hotkey_manager.wl_register_all("com.github.example.ExampleAppID", &[my_action]).unwrap();
 //!
-//!     // listening to change hotkey events on another thread like how you would listen to hotkey
-//!     // events.
+//!     // listening to hotkey change events on another thread like how you would listen to regular
+//!     // hotkey events.
 //!     std::thread::spawn(move || {
 //!         let Some(receiver) = WlHotKeysChangedEvent::receiver() else {
 //!             return;
