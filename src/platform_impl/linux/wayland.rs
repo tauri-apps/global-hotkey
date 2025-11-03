@@ -38,7 +38,23 @@ struct GlobalShortcutsState<'a> {
 }
 
 impl GlobalShortcutsState<'_> {
-    pub async fn new(event_sender: Sender<GSEvent>) -> Result<Self, String> {
+    pub async fn new(
+        app_id: impl Into<String>,
+        event_sender: Sender<GSEvent>,
+    ) -> Result<Self, String> {
+        match AppID::from_str(&app_id.into()) {
+            Ok(app_id) => {
+                if let Err(_e) = ashpd::register_host_app(app_id).await {
+                    #[cfg(feature = "tracing")]
+                    tracing::warn!("Failed to register app id: {:?}", _e);
+                }
+            }
+            Err(_e) => {
+                #[cfg(feature = "tracing")]
+                tracing::warn!("Failed to parse app id: {:?}", _e);
+            }
+        }
+
         let proxy = GlobalShortcuts::new()
             .await
             .map_err(|e| format!("Failed to start global shortcuts portal proxy: {e}"))?;
@@ -118,11 +134,8 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                         let _ = tx
                             .send(reregister_hotkeys(gs, &mut registered_hotkeys, &hotkeys).await);
                     } else {
-                        let _ = match init_global_shortcuts_with_app_id(
-                            app_id,
-                            gs_event_sender.clone(),
-                        )
-                        .await
+                        let _ = match GlobalShortcutsState::new(app_id, gs_event_sender.clone())
+                            .await
                         {
                             Ok(mut new_gs) => {
                                 let res = tx.send(
@@ -225,26 +238,6 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
             _ => unreachable!(),
         }
     }
-}
-
-async fn init_global_shortcuts_with_app_id<'a>(
-    app_id: impl Into<String>,
-    event_sender: Sender<GSEvent>,
-) -> Result<GlobalShortcutsState<'a>, String> {
-    match AppID::from_str(&app_id.into()) {
-        Ok(app_id) => {
-            if let Err(_e) = ashpd::register_host_app(app_id).await {
-                #[cfg(feature = "tracing")]
-                tracing::warn!("Failed to register app id: {:?}", _e);
-            }
-        }
-        Err(_e) => {
-            #[cfg(feature = "tracing")]
-            tracing::warn!("Failed to parse app id: {:?}", _e);
-        }
-    }
-
-    GlobalShortcutsState::new(event_sender).await
 }
 
 async fn reregister_hotkeys(
