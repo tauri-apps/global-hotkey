@@ -72,7 +72,7 @@
 //!     );
 //!
 //!     // register all your application's hotkey actions
-//!     hotkey_manager.wl_register_all(&[my_action]).unwrap();
+//!     hotkey_manager.wl_register_all("com.github.example.ExampleAppID", &[my_action]).unwrap();
 //!
 //!     // listening to hotkey change events on another thread
 //!     std::thread::spawn(move || {
