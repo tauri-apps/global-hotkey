@@ -96,9 +96,7 @@
 //! ```
 
 use crossbeam_channel::Receiver;
-use std::{env, num::ParseIntError};
-
-use ashpd::desktop::global_shortcuts::Shortcut;
+use std::env;
 
 use crate::{
     hotkey::HotKey,
@@ -135,7 +133,7 @@ impl WlHotKeysChangedEvent {
     }
 
     not_on_linux_cfg! {
-        fn receiver_impl() -> Receiver<WlHotKeysChangedEvent> {
+        fn receiver_impl() -> Option<Receiver<WlHotKeysChangedEvent>> {
             None
         }
     }
@@ -145,17 +143,6 @@ impl WlHotKeysChangedEvent {
 pub struct WlChangedHotKey {
     pub id: u32,
     pub hotkey_description: String,
-}
-
-impl TryFrom<Shortcut> for WlChangedHotKey {
-    type Error = ParseIntError;
-
-    fn try_from(value: Shortcut) -> Result<Self, Self::Error> {
-        Ok(Self {
-            id: value.id().parse::<u32>()?,
-            hotkey_description: value.trigger_description().into(),
-        })
-    }
 }
 
 /// Used to register a new action under Wayland which can have associated hotkeys.

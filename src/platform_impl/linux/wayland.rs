@@ -212,7 +212,7 @@ pub async fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), 
                         // WlChangedHotkeys
                         let new_shortcuts: Vec<WlChangedHotKey> = new_event
                             .shortcuts()
-                            .into_iter()
+                            .iter()
                             .filter_map(|ns| WlChangedHotKey::try_from(ns.clone()).ok())
                             .filter(|ns| registered_hotkeys.iter().any(|rh| rh.id == ns.id))
                             .collect();
@@ -490,6 +490,17 @@ fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {
     };
 
     Some(mods + keycode)
+}
+
+impl TryFrom<Shortcut> for WlChangedHotKey {
+    type Error = ParseIntError;
+
+    fn try_from(value: Shortcut) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: value.id().parse::<u32>()?,
+            hotkey_description: value.trigger_description().into(),
+        })
+    }
 }
 
 #[allow(unused)]
