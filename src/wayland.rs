@@ -56,6 +56,7 @@
 //!
 //! const MY_ACTION_ID: u32 = 1;
 //!
+//! # #[cfg(target_os = "linux")]
 //! fn main() {
 //!     // initialize hotkey manager
 //!     let hotkey_manager = GlobalHotKeyManager::new().unwrap();
@@ -93,6 +94,8 @@
 //!         println!("{event:?}");
 //!     }
 //! }
+//! # #[cfg(not(target_os = "linux"))]
+//! # fn main() {}
 //! ```
 
 use crossbeam_channel::Receiver;
