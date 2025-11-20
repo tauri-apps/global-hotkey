@@ -10,12 +10,13 @@
 //!
 //! - Windows
 //! - macOS
-//! - Linux (X11 Only)
+//! - Linux (X11/Wayland)
 //!
 //! ## Platform-specific notes:
 //!
 //! - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 //! - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
+//! - Global HotKeys work differently on Linux/Wayland. See the [`wayland`] module for more details.
 //!
 //! # Example
 //!
@@ -55,7 +56,15 @@ use once_cell::sync::{Lazy, OnceCell};
 
 mod error;
 pub mod hotkey;
+pub(crate) mod macros;
 mod platform_impl;
+pub mod wayland;
+
+use crate::macros::not_on_linux_cfg;
+use crate::macros::on_linux;
+use crate::macros::on_linux_cfg;
+use crate::wayland::WlHotKeyAction;
+use crate::wayland::WlNewHotKeyAction;
 
 pub use self::error::*;
 use hotkey::HotKey;
@@ -159,5 +168,89 @@ impl GlobalHotKeyManager {
     pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
         self.platform_impl.unregister_all(hotkeys)?;
         Ok(())
+    }
+
+    /// Register a set of hotkey actions on Wayland.
+    ///
+    /// # Arguments
+    ///
+    /// * `app_id` - a constant string to identify the application. See the [official GNOME
+    ///   documentation](https://developer.gnome.org/documentation/tutorials/application-id.html) for
+    ///   more details about how to create an app id. This app id should correspond to the base
+    ///   name of the .desktop file for your app, installed in a standard location (e.g.
+    ///   `~/.local/share/applications/`).
+    ///
+    ///   If registering the app id fails, a warning will be thrown using the `tracing` library (if
+    ///   the `tracing` feature is enabled). This warning may be ignored in sandboxed applications
+    ///   (e.g. Flatpaks).
+    ///
+    ///   This argument will be ignored after the first call to this function.
+    ///
+    /// * `hotkeys` - a list of hotkey actions to register. Ideally, you should register all of
+    ///   your application's actions in one call to this function.
+    ///
+    /// See the [`wayland`] module for more information about how to register hotkeys on Wayland.
+    ///
+    /// ## Note
+    ///
+    /// This function has no effect if the user is not using Wayland.
+    pub fn wl_register_all(
+        &self,
+        app_id: impl Into<String>,
+        hotkeys: &[WlNewHotKeyAction],
+    ) -> crate::Result<()> {
+        self.wl_register_all_impl(app_id, hotkeys)
+    }
+
+    /// Unregister a set of hotkey actions on Wayland.
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey_action_ids` - a list of ids corresponding to actions previously registered with
+    ///   [`GlobalHotKeyManager::wl_register_all`].
+    ///
+    /// ## Note
+    ///
+    /// This doesn't necessarily delete the specified actions from the user's system's settings; it
+    /// just prevents any more events from being received from them.
+    ///
+    /// This function has no effect if the user is not using Wayland.
+    pub fn wl_unregister_all(&self, hotkey_action_ids: &[u32]) {
+        self.wl_unregister_all_impl(hotkey_action_ids)
+    }
+
+    on_linux_cfg! {
+        fn wl_register_all_impl(&self, app_id: impl Into<String>, hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
+            self.platform_impl.wl_register_all(app_id, hotkeys)?;
+            Ok(())
+        }
+    }
+
+    not_on_linux_cfg! {
+        fn wl_register_all_impl(&self, _app_id: impl Into<String>, _hotkeys: &[WlNewHotKeyAction]) -> crate::Result<()> {
+            Ok(())
+        }
+    }
+
+    on_linux_cfg! {
+        fn wl_unregister_all_impl(&self, hotkey_action_ids: &[u32]) {
+            self.platform_impl.wl_unregister_all(hotkey_action_ids);
+        }
+    }
+
+    not_on_linux_cfg! {
+        fn wl_unregister_all_impl(&self, _hotkey_action_ids: &[u32]) {}
+    }
+
+    on_linux_cfg! {
+        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKeyAction]> {
+            self.platform_impl.wl_get_hotkeys()
+        }
+    }
+
+    not_on_linux_cfg! {
+        pub fn wl_get_hotkeys(&self) -> Box<[WlHotKeyAction]> {
+            Box::new([])
+        }
     }
 }

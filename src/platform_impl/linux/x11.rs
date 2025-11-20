@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use crossbeam_channel::{unbounded, Receiver, Sender};
+use crossbeam_channel::Receiver;
 use keyboard_types::{Code, Modifiers};
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
@@ -13,90 +13,8 @@ use x11rb::protocol::{xkb, ErrorKind, Event};
 use x11rb::rust_connection::RustConnection;
 use xkeysym::RawKeysym;
 
+use crate::platform_impl::platform::ThreadMessage;
 use crate::{hotkey::HotKey, Error, GlobalHotKeyEvent};
-
-enum ThreadMessage {
-    RegisterHotKey(HotKey, Sender<crate::Result<()>>),
-    RegisterHotKeys(Vec<HotKey>, Sender<crate::Result<()>>),
-    UnRegisterHotKey(HotKey, Sender<crate::Result<()>>),
-    UnRegisterHotKeys(Vec<HotKey>, Sender<crate::Result<()>>),
-    DropThread,
-}
-
-pub struct GlobalHotKeyManager {
-    thread_tx: Sender<ThreadMessage>,
-}
-
-impl GlobalHotKeyManager {
-    pub fn new() -> crate::Result<Self> {
-        let (thread_tx, thread_rx) = unbounded();
-        std::thread::spawn(|| {
-            if let Err(_err) = events_processor(thread_rx) {
-                #[cfg(feature = "tracing")]
-                tracing::error!("{}", _err);
-            }
-        });
-        Ok(Self { thread_tx })
-    }
-
-    pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        let _ = self
-            .thread_tx
-            .send(ThreadMessage::RegisterHotKey(hotkey, tx));
-
-        if let Ok(result) = rx.recv() {
-            result?;
-        }
-
-        Ok(())
-    }
-
-    pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        let _ = self
-            .thread_tx
-            .send(ThreadMessage::UnRegisterHotKey(hotkey, tx));
-
-        if let Ok(result) = rx.recv() {
-            result?;
-        }
-
-        Ok(())
-    }
-
-    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        let _ = self
-            .thread_tx
-            .send(ThreadMessage::RegisterHotKeys(hotkeys.to_vec(), tx));
-
-        if let Ok(result) = rx.recv() {
-            result?;
-        }
-
-        Ok(())
-    }
-
-    pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
-        let (tx, rx) = crossbeam_channel::bounded(1);
-        let _ = self
-            .thread_tx
-            .send(ThreadMessage::UnRegisterHotKeys(hotkeys.to_vec(), tx));
-
-        if let Ok(result) = rx.recv() {
-            result?;
-        }
-
-        Ok(())
-    }
-}
-
-impl Drop for GlobalHotKeyManager {
-    fn drop(&mut self) {
-        let _ = self.thread_tx.send(ThreadMessage::DropThread);
-    }
-}
 
 // XGrabKey works only with the exact state (modifiers)
 // and since X11 considers NumLock, ScrollLock and CapsLock a modifier when it is ON,
@@ -224,7 +142,7 @@ struct HotKeyState {
     mods: ModMask,
 }
 
-fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
+pub fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
     let mut hotkeys = BTreeMap::<Keycode, Vec<HotKeyState>>::new();
 
     let (conn, screen) = RustConnection::connect(None)
@@ -320,6 +238,7 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
                 ThreadMessage::DropThread => {
                     return Ok(());
                 }
+                _ => {}
             }
         }
 
