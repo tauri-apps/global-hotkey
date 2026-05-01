@@ -163,6 +163,10 @@ unsafe extern "system" fn global_hotkey_proc(
                 });
                 break;
             }
+            // Sleep to avoid burning a core for the whole hold duration
+            // (e.g. push-to-talk). 50ms keeps release latency imperceptible.
+            // See https://github.com/tauri-apps/global-hotkey/issues/176
+            std::thread::sleep(std::time::Duration::from_millis(50));
         });
     }
 
