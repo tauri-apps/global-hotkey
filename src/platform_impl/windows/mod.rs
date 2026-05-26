@@ -92,15 +92,15 @@ impl GlobalHotKeyManager {
         // get key scan code
         match key_to_vk(&hotkey.key) {
             Some(vk_code) => {
-                let vk_code = if hotkey.key == Code::Pause && hotkey.mods.contains(Modifiers::CONTROL)
-                {
-                    // On Windows, Ctrl+Pause is exposed as Break/Control-Break (`VK_CANCEL`)
-                    // rather than `VK_PAUSE`, but the control modifier still participates in the
-                    // hotkey chord.
-                    VK_CANCEL
-                } else {
-                    vk_code
-                };
+                let vk_code =
+                    if hotkey.key == Code::Pause && hotkey.mods.contains(Modifiers::CONTROL) {
+                        // On Windows, Ctrl+Pause is exposed as Break/Control-Break (`VK_CANCEL`)
+                        // rather than `VK_PAUSE`, but the control modifier still participates in the
+                        // hotkey chord.
+                        VK_CANCEL
+                    } else {
+                        vk_code
+                    };
 
                 let result =
                     unsafe { RegisterHotKey(self.hwnd, hotkey.id() as _, mods, vk_code as _) };
