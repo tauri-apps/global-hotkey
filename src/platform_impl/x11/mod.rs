@@ -160,6 +160,8 @@ fn register_hotkey(
                                 result.ignore_error();
                             }
                         }
+                        // Flush the rollback ungrabs (see unregister_hotkey).
+                        let _ = conn.flush();
 
                         Err(Error::AlreadyRegistered(hotkey))
                     } else {
@@ -212,6 +214,14 @@ fn unregister_hotkey(
             result.ignore_error();
         }
     }
+
+    // Flush so the ungrab actually reaches the X server. `ungrab_key` only
+    // queues the request, and the event loop polls with `poll_for_event`,
+    // which does not flush outgoing requests. `register_hotkey` flushes
+    // implicitly via `grab_key(..).check()`, but unregister has no such
+    // round-trip, so without this flush the key stays grabbed system-wide
+    // until the next request that waits for a reply (e.g. the next register).
+    let _ = conn.flush();
 
     let entry = hotkeys.entry(keycode).or_default();
     entry.retain(|k| k.mods != modifiers);
