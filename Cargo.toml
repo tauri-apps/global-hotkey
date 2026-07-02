@@ -45,7 +45,7 @@ features = [
 x11rb = { version = "0.13.1", features = ["xkb"] }
 xkeysym = "0.2.1"
 ashpd = { version = "0.12", default-features = false, features = ["async-std"] }
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
 futures = "0.3"
 
 [dev-dependencies]

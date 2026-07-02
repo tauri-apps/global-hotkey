@@ -22,6 +22,8 @@ use super::ThreadMessage;
 enum GSEvent {
     Activated(ashpd::desktop::global_shortcuts::Activated),
     Deactivated(ashpd::desktop::global_shortcuts::Deactivated),
+    /// The D-Bus signal stream ended (e.g. the portal restarted).
+    StreamEnded,
 }
 
 struct GlobalShortcutsState<'a> {
@@ -65,6 +67,7 @@ impl GlobalShortcutsState<'_> {
             while let Some(ev) = event_stream.next().await {
                 let _ = event_sender.send(ev);
             }
+            let _ = event_sender.send(GSEvent::StreamEnded);
         });
 
         Ok(Self { proxy, session })
@@ -261,6 +264,25 @@ async fn events_processor_async(thread_rx: Receiver<ThreadMessage>) -> Result<Ou
                             id,
                             state: HotKeyState::Released,
                         });
+                    }
+                }
+                Ok(GSEvent::StreamEnded) => {
+                    // The portal (or D-Bus connection) went away. Wait briefly to
+                    // avoid a tight loop, then recreate the session and rebind so
+                    // hotkeys keep working after a portal restart.
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    match GlobalShortcutsState::new(&app_id, gs_event_sender.clone()).await {
+                        Ok(gs) => {
+                            gs_state = gs;
+                            if let Err(_e) = rebind_all(&mut gs_state, &registered_hotkeys).await {
+                                #[cfg(feature = "tracing")]
+                                tracing::warn!("Failed to rebind after portal restart: {_e}");
+                            }
+                        }
+                        Err(_e) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::warn!("Failed to reconnect to portal: {_e}");
+                        }
                     }
                 }
                 Err(_) => {}
