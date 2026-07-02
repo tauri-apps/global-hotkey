@@ -10,12 +10,13 @@
 //!
 //! - Windows
 //! - macOS
-//! - Linux (X11 Only)
+//! - Linux (X11 and Wayland)
 //!
 //! ## Platform-specific notes:
 //!
 //! - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 //! - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
+//! - On Linux under Wayland, hotkeys are bound through the XDG GlobalShortcuts portal and every `register`/`unregister` call rebinds the whole set (which may prompt the user on some compositors), so prefer [`GlobalHotKeyManager::register_all`] when registering multiple hotkeys. If the portal is unavailable, the X11 backend is used as a fallback.
 //!
 //! # Example
 //!
@@ -48,7 +49,7 @@
 //!
 //! - Windows
 //! - macOS
-//! - Linux (X11 Only)
+//! - Linux (X11 and Wayland)
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use once_cell::sync::{Lazy, OnceCell};
