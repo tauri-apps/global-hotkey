@@ -409,7 +409,7 @@ fn keycode_to_x11_keysym(key: Code) -> Option<RawKeysym> {
         Code::Escape => xkeysym::key::Escape,
         Code::PrintScreen => xkeysym::key::Print,
         Code::ScrollLock => xkeysym::key::Scroll_Lock,
-        Code::NumLock => xkeysym::key::F1,
+        Code::NumLock => xkeysym::key::Num_Lock,
         Code::F1 => xkeysym::key::F1,
         Code::F2 => xkeysym::key::F2,
         Code::F3 => xkeysym::key::F3,
@@ -485,4 +485,30 @@ fn keysym_to_keycode(conn: &RustConnection, keysym: RawKeysym) -> Result<Option<
     }
 
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lock_keys_map_to_their_own_keysyms() {
+        // regression: NumLock used to map to xkeysym::key::F1
+        assert_eq!(
+            keycode_to_x11_keysym(Code::NumLock),
+            Some(xkeysym::key::Num_Lock)
+        );
+        assert_ne!(
+            keycode_to_x11_keysym(Code::NumLock),
+            keycode_to_x11_keysym(Code::F1)
+        );
+        assert_eq!(
+            keycode_to_x11_keysym(Code::CapsLock),
+            Some(xkeysym::key::Caps_Lock)
+        );
+        assert_eq!(
+            keycode_to_x11_keysym(Code::ScrollLock),
+            Some(xkeysym::key::Scroll_Lock)
+        );
+    }
 }
