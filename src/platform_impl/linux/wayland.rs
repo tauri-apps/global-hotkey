@@ -320,7 +320,45 @@ async fn trigger_description(
         .unwrap_or_else(|| hotkey.into_string()))
 }
 
+/// Keys whose keysym changes with SHIFT depending on the keyboard layout
+/// (e.g. Shift+8 produces `asterisk` on US layouts but `(` on German ones).
+/// The XDG shortcuts spec encodes triggers as modifiers + keysym, so a literal
+/// trigger like "CTRL+SHIFT+8" can never fire; without access to the active
+/// keymap the correct shifted keysym is unknowable here.
+fn shift_changes_keysym(key: Code) -> bool {
+    matches!(
+        key,
+        Code::Digit0
+            | Code::Digit1
+            | Code::Digit2
+            | Code::Digit3
+            | Code::Digit4
+            | Code::Digit5
+            | Code::Digit6
+            | Code::Digit7
+            | Code::Digit8
+            | Code::Digit9
+            | Code::Backquote
+            | Code::Minus
+            | Code::Equal
+            | Code::BracketLeft
+            | Code::BracketRight
+            | Code::Backslash
+            | Code::Semicolon
+            | Code::Quote
+            | Code::Comma
+            | Code::Period
+            | Code::Slash
+    )
+}
+
 fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {
+    // Omit the preferred trigger and let the compositor prompt the user for a
+    // combination instead of requesting one that cannot fire.
+    if hotkey.mods.contains(Modifiers::SHIFT) && shift_changes_keysym(hotkey.key) {
+        return None;
+    }
+
     let mut mods = String::new();
 
     if hotkey.mods.contains(Modifiers::CONTROL) {
@@ -446,13 +484,59 @@ fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {
         Code::AudioVolumeMute => "XF86AudioMute",
         Code::AudioVolumeUp => "XF86AudioRaiseVolume",
         Code::MediaPlay => "XF86AudioPlay",
+        Code::MediaPlayPause => "XF86AudioPlay",
         Code::MediaPause => "XF86AudioPause",
         Code::MediaStop => "XF86AudioStop",
         Code::MediaTrackNext => "XF86AudioNext",
         Code::MediaTrackPrevious => "XF86AudioPrev",
+        Code::MediaSelect => "XF86AudioMedia",
+        Code::BrowserBack => "XF86Back",
+        Code::BrowserFavorites => "XF86Favorites",
+        Code::BrowserForward => "XF86Forward",
+        Code::BrowserHome => "XF86HomePage",
+        Code::BrowserRefresh => "XF86Refresh",
+        Code::BrowserSearch => "XF86Search",
+        Code::BrowserStop => "XF86Stop",
+        Code::LaunchApp1 => "XF86Explorer",
+        Code::LaunchApp2 => "XF86Calculator",
+        Code::LaunchMail => "XF86Mail",
+        Code::Eject => "XF86Eject",
+        Code::WakeUp => "XF86WakeUp",
         Code::Pause => "Pause",
         _ => return None,
     };
 
     Some(mods + keycode)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trigger_basic_combos() {
+        let hk = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyX);
+        assert_eq!(
+            hotkey_to_wayland_trigger(hk).as_deref(),
+            Some("CTRL+SHIFT+x")
+        );
+        let hk = HotKey::new(Some(Modifiers::SUPER), Code::F13);
+        assert_eq!(hotkey_to_wayland_trigger(hk).as_deref(), Some("LOGO+F13"));
+        let hk = HotKey::new(None, Code::BrowserFavorites);
+        assert_eq!(
+            hotkey_to_wayland_trigger(hk).as_deref(),
+            Some("XF86Favorites")
+        );
+    }
+
+    #[test]
+    fn trigger_omitted_for_layout_dependent_shift_combos() {
+        // Shift+8 produces a layout-dependent keysym; a literal trigger would
+        // never fire, so no preferred trigger must be emitted.
+        let hk = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Digit8);
+        assert_eq!(hotkey_to_wayland_trigger(hk), None);
+        // Without SHIFT the digit keysym is stable.
+        let hk = HotKey::new(Some(Modifiers::CONTROL), Code::Digit8);
+        assert_eq!(hotkey_to_wayland_trigger(hk).as_deref(), Some("CTRL+8"));
+    }
 }
