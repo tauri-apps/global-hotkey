@@ -12,7 +12,10 @@ use crossbeam_channel::{unbounded, Receiver, Select, Sender};
 use futures::{Stream, StreamExt};
 use keyboard_types::{Code, Modifiers};
 
-use crate::{hotkey::HotKey, Error, GlobalHotKeyEvent, HotKeyState};
+use crate::{
+    hotkey::{DescribedHotKey, HotKey},
+    Error, GlobalHotKeyEvent, HotKeyState,
+};
 
 use super::ThreadMessage;
 
@@ -91,7 +94,7 @@ impl GlobalShortcutsState<'_> {
 
 async fn rebind_all(
     gs_state: &mut GlobalShortcutsState<'_>,
-    registered_hotkeys: &HashMap<u32, HotKey>,
+    registered_hotkeys: &HashMap<u32, DescribedHotKey>,
 ) -> Result<(), Error> {
     // Close failure is non-fatal (e.g. the portal restarted and the session is
     // already gone); creating the new session below self-heals.
@@ -108,9 +111,14 @@ async fn rebind_all(
 
     let shortcuts: Vec<NewShortcut> = registered_hotkeys
         .iter()
-        .map(|(id, hotkey)| {
-            NewShortcut::new(id.to_string(), hotkey.into_string())
-                .preferred_trigger(hotkey_to_wayland_trigger(*hotkey).as_deref())
+        .map(|(id, dh)| {
+            NewShortcut::new(
+                id.to_string(),
+                dh.description
+                    .clone()
+                    .unwrap_or_else(|| dh.hotkey.into_string()),
+            )
+            .preferred_trigger(hotkey_to_wayland_trigger(dh.hotkey).as_deref())
         })
         .collect();
 
@@ -147,7 +155,7 @@ pub fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<Outcome, S
 }
 
 async fn events_processor_async(thread_rx: Receiver<ThreadMessage>) -> Result<Outcome, String> {
-    let mut registered_hotkeys = HashMap::<u32, HotKey>::new();
+    let mut registered_hotkeys = HashMap::<u32, DescribedHotKey>::new();
     let mut hotkey_pressed = HashMap::<u32, bool>::new();
 
     let (gs_event_sender, gs_event_receiver) = unbounded();
@@ -176,21 +184,23 @@ async fn events_processor_async(thread_rx: Receiver<ThreadMessage>) -> Result<Ou
         let selected_oper = select.select();
         match selected_oper.index() {
             i if i == thread_rx_idx => match selected_oper.recv(&thread_rx) {
-                Ok(ThreadMessage::RegisterHotKey(hotkey, tx)) => {
-                    let prev = registered_hotkeys.insert(hotkey.id(), hotkey);
+                Ok(ThreadMessage::RegisterHotKey(dh, tx)) => {
+                    let id = dh.hotkey.id();
+                    let prev = registered_hotkeys.insert(id, dh);
                     let result = rebind_all(&mut gs_state, &registered_hotkeys).await;
                     // Roll back so a failed hotkey doesn't get silently bound
                     // by a later successful rebind.
                     if result.is_err() && prev.is_none() {
-                        registered_hotkeys.remove(&hotkey.id());
+                        registered_hotkeys.remove(&id);
                     }
                     let _ = tx.send(result);
                 }
-                Ok(ThreadMessage::RegisterHotKeys(hotkeys, tx)) => {
+                Ok(ThreadMessage::RegisterHotKeys(dhs, tx)) => {
                     let mut new_ids = Vec::new();
-                    for hotkey in hotkeys {
-                        if registered_hotkeys.insert(hotkey.id(), hotkey).is_none() {
-                            new_ids.push(hotkey.id());
+                    for dh in dhs {
+                        let id = dh.hotkey.id();
+                        if registered_hotkeys.insert(id, dh).is_none() {
+                            new_ids.push(id);
                         }
                     }
                     let result = rebind_all(&mut gs_state, &registered_hotkeys).await;
@@ -214,6 +224,9 @@ async fn events_processor_async(thread_rx: Receiver<ThreadMessage>) -> Result<Ou
                     }
                     let result = rebind_all(&mut gs_state, &registered_hotkeys).await;
                     let _ = tx.send(result);
+                }
+                Ok(ThreadMessage::TriggerDescription(hotkey, tx)) => {
+                    let _ = tx.send(trigger_description(&gs_state, hotkey).await);
                 }
                 Ok(ThreadMessage::DropThread) => return Ok(Outcome::Handled),
                 Err(_) => return Ok(Outcome::Handled),
@@ -255,6 +268,34 @@ async fn events_processor_async(thread_rx: Receiver<ThreadMessage>) -> Result<Ou
             _ => unreachable!(),
         }
     }
+}
+
+/// Queries the portal for the trigger currently bound to this hotkey; the
+/// user may have reassigned it in the system settings. Falls back to the
+/// hotkey's own string representation if the portal reports nothing.
+async fn trigger_description(
+    gs_state: &GlobalShortcutsState<'_>,
+    hotkey: HotKey,
+) -> crate::Result<String> {
+    let response = gs_state
+        .proxy
+        .list_shortcuts(&gs_state.session)
+        .await
+        .and_then(|r| r.response())
+        .map_err(|e| {
+            Error::OsError(std::io::Error::other(format!(
+                "Failed to list global shortcuts from portal: {e}"
+            )))
+        })?;
+
+    let id = hotkey.id().to_string();
+    Ok(response
+        .shortcuts()
+        .iter()
+        .find(|s| s.id() == id)
+        .map(|s| s.trigger_description().to_string())
+        .filter(|d| !d.is_empty())
+        .unwrap_or_else(|| hotkey.into_string()))
 }
 
 fn hotkey_to_wayland_trigger(hotkey: HotKey) -> Option<String> {

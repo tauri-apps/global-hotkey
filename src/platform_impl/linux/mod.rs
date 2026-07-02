@@ -6,16 +6,17 @@ use std::sync::OnceLock;
 
 use crossbeam_channel::{unbounded, Sender};
 
-use crate::hotkey::HotKey;
+use crate::hotkey::{DescribedHotKey, HotKey};
 
 mod wayland;
 mod x11;
 
 pub(crate) enum ThreadMessage {
-    RegisterHotKey(HotKey, Sender<crate::Result<()>>),
-    RegisterHotKeys(Vec<HotKey>, Sender<crate::Result<()>>),
+    RegisterHotKey(DescribedHotKey, Sender<crate::Result<()>>),
+    RegisterHotKeys(Vec<DescribedHotKey>, Sender<crate::Result<()>>),
     UnRegisterHotKey(HotKey, Sender<crate::Result<()>>),
     UnRegisterHotKeys(Vec<HotKey>, Sender<crate::Result<()>>),
+    TriggerDescription(HotKey, Sender<crate::Result<String>>),
     DropThread,
 }
 
@@ -70,7 +71,7 @@ impl GlobalHotKeyManager {
         Ok(Self { thread_tx })
     }
 
-    pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
+    pub fn register(&self, hotkey: DescribedHotKey) -> crate::Result<()> {
         let (tx, rx) = crossbeam_channel::bounded(1);
         let _ = self
             .thread_tx
@@ -88,11 +89,11 @@ impl GlobalHotKeyManager {
         rx.recv().map_err(|_| backend_thread_dead())?
     }
 
-    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+    pub fn register_all(&self, hotkeys: Vec<DescribedHotKey>) -> crate::Result<()> {
         let (tx, rx) = crossbeam_channel::bounded(1);
         let _ = self
             .thread_tx
-            .send(ThreadMessage::RegisterHotKeys(hotkeys.to_vec(), tx));
+            .send(ThreadMessage::RegisterHotKeys(hotkeys, tx));
 
         rx.recv().map_err(|_| backend_thread_dead())?
     }
@@ -102,6 +103,15 @@ impl GlobalHotKeyManager {
         let _ = self
             .thread_tx
             .send(ThreadMessage::UnRegisterHotKeys(hotkeys.to_vec(), tx));
+
+        rx.recv().map_err(|_| backend_thread_dead())?
+    }
+
+    pub fn trigger_description(&self, hotkey: HotKey) -> crate::Result<String> {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        let _ = self
+            .thread_tx
+            .send(ThreadMessage::TriggerDescription(hotkey, tx));
 
         rx.recv().map_err(|_| backend_thread_dead())?
     }

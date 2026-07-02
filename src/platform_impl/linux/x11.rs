@@ -214,12 +214,12 @@ pub fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String
 
         if let Ok(msg) = thread_rx.try_recv() {
             match msg {
-                ThreadMessage::RegisterHotKey(hotkey, tx) => {
-                    let _ = tx.send(register_hotkey(&conn, root, &mut hotkeys, hotkey));
+                ThreadMessage::RegisterHotKey(dh, tx) => {
+                    let _ = tx.send(register_hotkey(&conn, root, &mut hotkeys, dh.hotkey));
                 }
                 ThreadMessage::RegisterHotKeys(keys, tx) => {
-                    for hotkey in keys {
-                        if let Err(e) = register_hotkey(&conn, root, &mut hotkeys, hotkey) {
+                    for dh in keys {
+                        if let Err(e) = register_hotkey(&conn, root, &mut hotkeys, dh.hotkey) {
                             let _ = tx.send(Err(e));
                         }
                     }
@@ -235,6 +235,10 @@ pub fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String
                         }
                     }
                     let _ = tx.send(Ok(()));
+                }
+                ThreadMessage::TriggerDescription(hotkey, tx) => {
+                    // X11 always binds exactly what was requested.
+                    let _ = tx.send(Ok(hotkey.into_string()));
                 }
                 ThreadMessage::DropThread => {
                     return Ok(());

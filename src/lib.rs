@@ -16,7 +16,7 @@
 //!
 //! - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 //! - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
-//! - On Linux under Wayland, hotkeys are bound through the XDG GlobalShortcuts portal and every `register`/`unregister` call rebinds the whole set (which may prompt the user on some compositors), so prefer [`GlobalHotKeyManager::register_all`] when registering multiple hotkeys. If the portal is unavailable, the X11 backend is used as a fallback.
+//! - On Linux under Wayland, hotkeys are bound through the XDG GlobalShortcuts portal and every `register`/`unregister` call rebinds the whole set (which may prompt the user on some compositors), so prefer [`GlobalHotKeyManager::register_all`] when registering multiple hotkeys. If the portal is unavailable, the X11 backend is used as a fallback. Use [`hotkey::HotKey::with_description`] to attach a human-readable description shown in the system settings, and [`GlobalHotKeyManager::trigger_description`] to query the trigger the user has actually bound.
 //!
 //! # Example
 //!
@@ -59,7 +59,7 @@ pub mod hotkey;
 mod platform_impl;
 
 pub use self::error::*;
-use hotkey::HotKey;
+use hotkey::{DescribedHotKey, HotKey};
 
 /// Describes the state of the [`HotKey`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -144,21 +144,43 @@ impl GlobalHotKeyManager {
         })
     }
 
-    pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
-        self.platform_impl.register(hotkey)
+    /// Registers a hotkey, accepting either a [`HotKey`] or a
+    /// [`DescribedHotKey`] (see [`HotKey::with_description`]).
+    pub fn register(&self, hotkey: impl Into<DescribedHotKey>) -> crate::Result<()> {
+        self.platform_impl.register(hotkey.into())
     }
 
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {
         self.platform_impl.unregister(hotkey)
     }
 
-    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
-        self.platform_impl.register_all(hotkeys)?;
+    /// Registers multiple hotkeys at once, accepting [`HotKey`] or
+    /// [`DescribedHotKey`] elements. Prefer this over repeated
+    /// [`GlobalHotKeyManager::register`] calls on Wayland (see the
+    /// platform-specific notes).
+    pub fn register_all<T: Clone + Into<DescribedHotKey>>(
+        &self,
+        hotkeys: &[T],
+    ) -> crate::Result<()> {
+        self.platform_impl
+            .register_all(hotkeys.iter().cloned().map(Into::into).collect())?;
         Ok(())
     }
 
     pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
         self.platform_impl.unregister_all(hotkeys)?;
         Ok(())
+    }
+
+    /// Returns a human-readable description of the trigger the system has
+    /// actually bound for this hotkey.
+    ///
+    /// On Wayland the user can reassign a shortcut in the system settings,
+    /// so the effective trigger can differ from the requested one; this
+    /// queries the portal for the current binding. On all other platforms
+    /// the binding always matches the request and the hotkey's own string
+    /// representation is returned.
+    pub fn trigger_description(&self, hotkey: HotKey) -> crate::Result<String> {
+        self.platform_impl.trigger_description(hotkey)
     }
 }
