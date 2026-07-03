@@ -16,7 +16,7 @@
 //!
 //! - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 //! - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
-//! - On Linux under Wayland, hotkeys are bound through the XDG GlobalShortcuts portal and every `register`/`unregister` call rebinds the whole set (which may prompt the user on some compositors), so prefer [`GlobalHotKeyManager::register_all`] when registering multiple hotkeys. If the portal is unavailable, the X11 backend is used as a fallback. Use [`hotkey::HotKey::with_description`] to attach a human-readable description shown in the system settings, and [`GlobalHotKeyManager::trigger_description`] to query the trigger the user has actually bound.
+//! - On Linux under Wayland, hotkeys go through the XDG GlobalShortcuts portal, falling back to X11 if it is unavailable. Prefer [`GlobalHotKeyManager::register_all`]: every `register`/`unregister` rebinds the whole set and may prompt the user. Set `GLOBAL_HOTKEY_APP_ID` since compositors persist approvals per app ID. See also [`hotkey::HotKey::with_description`] and [`GlobalHotKeyManager::trigger_description`].
 //!
 //! # Example
 //!

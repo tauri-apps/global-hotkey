@@ -20,9 +20,9 @@ If the GlobalShortcuts portal is unavailable (e.g. GNOME < 48 or older KDE), the
 
 Every `register`/`unregister` call rebinds the whole shortcut set through the portal (which may prompt the user on some compositors), so prefer `register_all` when registering multiple hotkeys.
 
-Use `HotKey::with_description("...")` to attach a human-readable description shown in the system settings when listing or reassigning shortcuts, and `GlobalHotKeyManager::trigger_description(hotkey)` to query the trigger the user has actually bound (users can reassign shortcuts in their system settings).
+`HotKey::with_description("...")` attaches a description shown in the system settings; `trigger_description(hotkey)` returns the trigger the user actually bound.
 
-Set the `GLOBAL_HOTKEY_APP_ID` environment variable to your application's ID for proper D-Bus registration (falls back to `FLATPAK_ID` or `com.global-hotkey.app`).
+Set `GLOBAL_HOTKEY_APP_ID` to your application's ID (falls back to `FLATPAK_ID`, then `com.global-hotkey.app`). Compositors persist shortcut approvals per app ID, so apps sharing the default inherit each other's remembered shortcuts.
 
 ## Platform-specific notes:
 
