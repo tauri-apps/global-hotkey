@@ -452,6 +452,7 @@ fn modifiers_to_x11_mods(modifiers: Modifiers) -> ModMask {
     if modifiers.contains(Modifiers::SHIFT) {
         x11mods |= ModMask::SHIFT;
     }
+    #[allow(deprecated)]
     if modifiers.intersects(Modifiers::SUPER | Modifiers::META) {
         x11mods |= ModMask::M4;
     }

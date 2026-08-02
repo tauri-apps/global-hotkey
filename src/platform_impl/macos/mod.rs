@@ -85,6 +85,7 @@ impl GlobalHotKeyManager {
         if hotkey.mods.contains(Modifiers::SHIFT) {
             mods |= 512;
         }
+        #[allow(deprecated)]
         if hotkey.mods.intersects(Modifiers::SUPER | Modifiers::META) {
             mods |= 256;
         }

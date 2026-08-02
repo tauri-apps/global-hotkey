@@ -79,6 +79,7 @@ impl GlobalHotKeyManager {
         if hotkey.mods.contains(Modifiers::SHIFT) {
             mods |= MOD_SHIFT;
         }
+        #[allow(deprecated)]
         if hotkey.mods.intersects(Modifiers::SUPER | Modifiers::META) {
             mods |= MOD_WIN;
         }
