@@ -42,7 +42,7 @@ features = [
 ]
 
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
-x11rb = { version = "0.13.1", features = ["xkb"] }
+x11rb = { version = "0.13.1", features = ["xkb", "xinput"] }
 xkeysym = "0.2.1"
 ashpd = { version = "0.12", default-features = false, features = ["async-std"] }
 tokio = { version = "1", features = ["rt-multi-thread", "time"] }
