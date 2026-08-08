@@ -9,7 +9,9 @@ use keyboard_types::{Code, Modifiers};
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
 use x11rb::protocol::xinput::{self, ConnectionExt as _};
-use x11rb::protocol::xproto::{ConnectionExt, GrabMode, KeyButMask, Keycode, ModMask, Window};
+use x11rb::protocol::xproto::{
+    ConnectionExt, GrabMode, GrabStatus, KeyButMask, Keycode, ModMask, Window,
+};
 use x11rb::protocol::{xkb, ErrorKind, Event};
 use x11rb::rust_connection::RustConnection;
 use xkeysym::RawKeysym;
@@ -144,13 +146,42 @@ struct HotKeyState {
     mods: ModMask,
 }
 
-/// Core passive grabs (`XGrabKey`) never fire while another client holds an
-/// active `XGrabKeyboard`, which remote-desktop clients take for the duration
-/// of a session. XInput2 raw key events are dispatched ahead of core grab
-/// processing, so they still arrive and let hotkeys work through such a grab.
+/// Whether another client currently holds an active keyboard grab.
 ///
-/// Raw events carry no modifier state and querying it separately races the
-/// key release, so modifiers are tracked from the raw stream itself.
+/// There is no way to ask the server directly, so this attempts the grab
+/// itself: `AlreadyGrabbed` means somebody else has it. A successful grab is
+/// released immediately and is not observable by other clients.
+fn keyboard_grabbed(conn: &RustConnection, root: Window) -> bool {
+    let Ok(cookie) = conn.grab_keyboard(
+        false,
+        root,
+        x11rb::CURRENT_TIME,
+        GrabMode::ASYNC,
+        GrabMode::ASYNC,
+    ) else {
+        return false;
+    };
+
+    let Ok(reply) = cookie.reply() else {
+        return false;
+    };
+
+    if reply.status == GrabStatus::ALREADY_GRABBED {
+        return true;
+    }
+
+    if let Ok(cookie) = conn.ungrab_keyboard(x11rb::CURRENT_TIME) {
+        cookie.ignore_error();
+    }
+    let _ = conn.flush();
+
+    false
+}
+
+/// Modifier state reconstructed from the raw key stream.
+///
+/// Raw events carry no modifier state, and querying it separately races the
+/// key release, so presses and releases are tracked as they arrive.
 #[derive(Default)]
 struct RawModifiers {
     ctrl: bool,
@@ -175,16 +206,16 @@ impl RawModifiers {
     fn as_mod_mask(&self) -> ModMask {
         let mut mask = ModMask::default();
         if self.ctrl {
-            mask = mask | ModMask::CONTROL;
+            mask |= ModMask::CONTROL;
         }
         if self.shift {
-            mask = mask | ModMask::SHIFT;
+            mask |= ModMask::SHIFT;
         }
         if self.alt {
-            mask = mask | ModMask::M1;
+            mask |= ModMask::M1;
         }
         if self.meta {
-            mask = mask | ModMask::M4;
+            mask |= ModMask::M4;
         }
         mask
     }
@@ -284,6 +315,14 @@ pub fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String
                         raw_mods.update(keysym, true);
                     }
 
+                    // Modifier state has to be tracked continuously, but the
+                    // hotkey itself is only reported when the passive grab
+                    // cannot fire. Otherwise the key would be delivered twice,
+                    // and raw events do not consume it the way a grab does.
+                    if !keyboard_grabbed(&conn, root) {
+                        continue;
+                    }
+
                     let event_mods = raw_mods.as_mod_mask();
                     if let Some(entry) = hotkeys.get_mut(&keycode) {
                         for state in entry {
@@ -302,6 +341,10 @@ pub fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String
                     if let Some(&keysym) = keysym_cache.get(&keycode) {
                         raw_mods.update(keysym, false);
                     }
+
+                    // Deliberately not gated on the grab: this only closes out
+                    // a press the raw path already reported, and the grab may
+                    // have been released in between.
 
                     if let Some(entry) = hotkeys.get_mut(&keycode) {
                         for state in entry {
