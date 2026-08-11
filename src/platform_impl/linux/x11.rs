@@ -315,15 +315,26 @@ pub fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String
                         raw_mods.update(keysym, true);
                     }
 
-                    // Modifier state has to be tracked continuously, but the
-                    // hotkey itself is only reported when the passive grab
-                    // cannot fire. Otherwise the key would be delivered twice,
-                    // and raw events do not consume it the way a grab does.
+                    let event_mods = raw_mods.as_mod_mask();
+
+                    // Probing for a foreign grab takes a grab of our own, which
+                    // makes the server emit FocusOut/FocusIn on the focused
+                    // window. Only ask once the key is known to be a hotkey,
+                    // otherwise every keystroke anywhere shakes the focus.
+                    if !hotkeys
+                        .get(&keycode)
+                        .is_some_and(|e| e.iter().any(|s| event_mods == s.mods && !s.pressed))
+                    {
+                        continue;
+                    }
+
+                    // The hotkey is only reported when the passive grab cannot
+                    // fire. Otherwise the key would be delivered twice, and raw
+                    // events do not consume it the way a grab does.
                     if !keyboard_grabbed(&conn, root) {
                         continue;
                     }
 
-                    let event_mods = raw_mods.as_mod_mask();
                     if let Some(entry) = hotkeys.get_mut(&keycode) {
                         for state in entry {
                             if event_mods == state.mods && !state.pressed {
