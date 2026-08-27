@@ -31,7 +31,7 @@ pub use keyboard_types::{Code, Modifiers};
 use std::{borrow::Borrow, fmt::Display, hash::Hash, str::FromStr};
 
 #[cfg(target_os = "macos")]
-pub const CMD_OR_CTRL: Modifiers = Modifiers::SUPER;
+pub const CMD_OR_CTRL: Modifiers = Modifiers::META;
 #[cfg(not(target_os = "macos"))]
 pub const CMD_OR_CTRL: Modifiers = Modifiers::CONTROL;
 
@@ -83,12 +83,14 @@ impl serde::Serialize for HotKey {
 
 impl HotKey {
     /// Creates a new hotkey to define keyboard shortcuts throughout your application.
-    /// Only [`Modifiers::ALT`], [`Modifiers::SHIFT`], [`Modifiers::CONTROL`], and [`Modifiers::SUPER`]
+    /// Only [`Modifiers::ALT`], [`Modifiers::SHIFT`], [`Modifiers::CONTROL`], and [`Modifiers::META`]
     pub fn new(mods: Option<Modifiers>, key: Code) -> Self {
         let mut mods = mods.unwrap_or_else(Modifiers::empty);
-        if mods.contains(Modifiers::META) {
-            mods.remove(Modifiers::META);
-            mods.insert(Modifiers::SUPER);
+
+        #[allow(deprecated)]
+        if mods.contains(Modifiers::SUPER) {
+            mods.remove(Modifiers::SUPER);
+            mods.insert(Modifiers::META);
         }
 
         Self {
@@ -107,7 +109,7 @@ impl HotKey {
     /// Returns `true` if this [`Code`] and [`Modifiers`] matches this hotkey.
     pub fn matches(&self, modifiers: impl Borrow<Modifiers>, key: impl Borrow<Code>) -> bool {
         // Should be a const but const bit_or doesn't work here.
-        let base_mods = Modifiers::SHIFT | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SUPER;
+        let base_mods = Modifiers::SHIFT | Modifiers::CONTROL | Modifiers::ALT | Modifiers::META;
         let modifiers = modifiers.borrow();
         let key = key.borrow();
         self.mods == *modifiers & base_mods && self.key == *key
@@ -125,8 +127,8 @@ impl HotKey {
         if self.mods.contains(Modifiers::ALT) {
             hotkey.push_str("alt+")
         }
-        if self.mods.contains(Modifiers::SUPER) {
-            hotkey.push_str("super+")
+        if self.mods.contains(Modifiers::META) {
+            hotkey.push_str("meta+")
         }
         hotkey.push_str(&self.key.to_string());
         hotkey
@@ -202,15 +204,15 @@ fn parse_hotkey(hotkey: &str) -> Result<HotKey, HotKeyParseError> {
                     "CONTROL" | "CTRL" => {
                         mods |= Modifiers::CONTROL;
                     }
-                    "COMMAND" | "CMD" | "SUPER" => {
-                        mods |= Modifiers::SUPER;
+                    "COMMAND" | "CMD" | "SUPER" | "META" => {
+                        mods |= Modifiers::META;
                     }
                     "SHIFT" => {
                         mods |= Modifiers::SHIFT;
                     }
                     #[cfg(target_os = "macos")]
                     "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
-                        mods |= Modifiers::SUPER;
+                        mods |= Modifiers::META;
                     }
                     #[cfg(not(target_os = "macos"))]
                     "COMMANDORCONTROL" | "COMMANDORCTRL" | "CMDORCTRL" | "CMDORCONTROL" => {
@@ -403,9 +405,9 @@ fn test_parse_hotkey() {
     );
 
     assert_parse_hotkey!(
-        "super+ctrl+SHIFT+alt+ArrowUp",
+        "meta+ctrl+SHIFT+alt+ArrowUp",
         HotKey {
-            mods: Modifiers::SUPER | Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT,
+            mods: Modifiers::META | Modifiers::CONTROL | Modifiers::SHIFT | Modifiers::ALT,
             key: Code::ArrowUp,
             id: 0,
         }
@@ -440,7 +442,7 @@ fn test_parse_hotkey() {
         "CmdOrCtrl+Space",
         HotKey {
             #[cfg(target_os = "macos")]
-            mods: Modifiers::SUPER,
+            mods: Modifiers::META,
             #[cfg(not(target_os = "macos"))]
             mods: Modifiers::CONTROL,
             key: Code::Space,
