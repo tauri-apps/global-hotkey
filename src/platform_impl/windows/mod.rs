@@ -316,7 +316,7 @@ fn key_to_vk(key: &Code) -> Option<VIRTUAL_KEY> {
         Code::NumpadDecimal => VK_DECIMAL,
         Code::NumpadDivide => VK_DIVIDE,
         Code::NumpadEnter => VK_RETURN,
-        Code::NumpadEqual => VK_E,
+        Code::NumpadEqual => VK_OEM_NEC_EQUAL,
         Code::NumpadMultiply => VK_MULTIPLY,
         Code::NumpadSubtract => VK_SUBTRACT,
         Code::ScrollLock => VK_SCROLL,
