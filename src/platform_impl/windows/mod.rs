@@ -91,7 +91,7 @@ impl GlobalHotKeyManager {
         }
 
         // get key scan code
-        match key_to_vk(&hotkey.key) {
+        match key_to_vk(&hotkey.key, hotkey.mods) {
             Some(vk_code) => {
                 let result =
                     unsafe { RegisterHotKey(self.hwnd, hotkey.id() as _, mods, vk_code as _) };
@@ -202,8 +202,12 @@ pub fn get_instance_handle() -> windows_sys::Win32::Foundation::HMODULE {
 }
 
 // used to build accelerators table from Key
-fn key_to_vk(key: &Code) -> Option<VIRTUAL_KEY> {
+fn key_to_vk(key: &Code, mods: Modifiers) -> Option<VIRTUAL_KEY> {
     Some(match key {
+        // On Windows, Ctrl+Pause is exposed as Break/Control-Break (`VK_CANCEL`)
+        // rather than `VK_PAUSE`, but the control modifier still participates in the
+        // hotkey chord.
+        Code::Pause if mods.contains(Modifiers::CONTROL) => VK_CANCEL,
         Code::KeyA => VK_A,
         Code::KeyB => VK_B,
         Code::KeyC => VK_C,
