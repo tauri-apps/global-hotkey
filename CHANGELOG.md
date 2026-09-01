@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0]
+
+- [`b5329b9`](https://www.github.com/tauri-apps/global-hotkey/commit/b5329b94812d2efaa59c0f58ece9e27e51671ecc) ([#210](https://www.github.com/tauri-apps/global-hotkey/pull/210)) Upgrade `keyboard-types` to 0.8 and use `META` as the primary variant for the Super modifier.
+- [`16dc4a4`](https://www.github.com/tauri-apps/global-hotkey/commit/16dc4a4ff36e75548535536832c8e180c0195010) ([#216](https://www.github.com/tauri-apps/global-hotkey/pull/216)) Add parser and platform backend support for more international, numpad, browser, launch, system, and extended function hotkeys.
+- [`35b81e5`](https://www.github.com/tauri-apps/global-hotkey/commit/35b81e58ffb6b7c333851ee4b75121616ea0ab3b) ([#179](https://www.github.com/tauri-apps/global-hotkey/pull/179)) On Windows, fix `Ctrl+Pause` hotkeys never triggering by registering them as `VK_CANCEL` (Break), which is the virtual key the keyboard driver reports when `Pause` is pressed with `Ctrl` held.
+- [`232680b`](https://www.github.com/tauri-apps/global-hotkey/commit/232680b183fa256f7f8d5e235ab1336e5f4188aa) On Windows, fix `NumpadEqual` hotkeys being registered as the letter `E` instead of the numpad `=` key (`VK_OEM_NEC_EQUAL`).
+
 ## \[0.8.0]
 
 - [`d706220`](https://www.github.com/tauri-apps/global-hotkey/commit/d70622077a2acef52c2359b8b65218523be72c26) ([#165](https://www.github.com/tauri-apps/global-hotkey/pull/165) by [@SergioRibera](https://www.github.com/tauri-apps/global-hotkey/../../SergioRibera)) Increased MSRV to `1.77`.
