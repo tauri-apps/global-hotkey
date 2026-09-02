@@ -47,7 +47,7 @@ xkeysym = "0.2.1"
 
 [dev-dependencies]
 winit = "0.30"
-tao = "0.30"
+tao = "0.37"
 eframe = "0.27"
 iced = "0.13.1"
 async-std = "1.12.0"
