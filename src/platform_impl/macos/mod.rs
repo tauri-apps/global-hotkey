@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    hotkey::HotKey,
+    hotkey::{DescribedHotKey, HotKey},
     platform_impl::platform::ffi::{
         kCFAllocatorDefault, kCFRunLoopCommonModes, CFMachPortCreateRunLoopSource,
         CFRunLoopAddSource, CFRunLoopGetMain, CGEventMask, CGEventRef, CGEventTapCreate,
@@ -80,7 +80,9 @@ impl GlobalHotKeyManager {
         })
     }
 
-    pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
+    pub fn register(&self, hotkey: DescribedHotKey) -> crate::Result<()> {
+        // Descriptions are only used by the Wayland portal backend.
+        let hotkey = hotkey.hotkey;
         let mut mods: u32 = 0;
         if hotkey.mods.contains(Modifiers::SHIFT) {
             mods |= 512;
@@ -168,9 +170,9 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+    pub fn register_all(&self, hotkeys: Vec<DescribedHotKey>) -> crate::Result<()> {
         for hotkey in hotkeys {
-            self.register(*hotkey)?;
+            self.register(hotkey)?;
         }
         Ok(())
     }
@@ -180,6 +182,11 @@ impl GlobalHotKeyManager {
             self.unregister(*hotkey)?;
         }
         Ok(())
+    }
+
+    pub fn trigger_description(&self, hotkey: HotKey) -> crate::Result<String> {
+        // The binding always matches the request on macOS.
+        Ok(hotkey.into_string())
     }
 
     unsafe fn unregister_hotkey_ptr(

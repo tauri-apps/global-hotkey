@@ -115,6 +115,16 @@ impl HotKey {
         self.mods == *modifiers & base_mods && self.key == *key
     }
 
+    /// Attaches a human-readable description to this hotkey, shown by the
+    /// system when listing or reassigning shortcuts (currently used on
+    /// Wayland only, ignored on other platforms).
+    pub fn with_description(self, description: impl Into<String>) -> DescribedHotKey {
+        DescribedHotKey {
+            hotkey: self,
+            description: Some(description.into()),
+        }
+    }
+
     /// Converts this hotkey into a string.
     pub fn into_string(self) -> String {
         let mut hotkey = String::new();
@@ -132,6 +142,33 @@ impl HotKey {
         }
         hotkey.push_str(&self.key.to_string());
         hotkey
+    }
+}
+
+/// A [`HotKey`] with an optional human-readable description, shown by the
+/// system when listing or reassigning shortcuts (currently used on Wayland
+/// only, ignored on other platforms).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DescribedHotKey {
+    /// The hotkey.
+    pub hotkey: HotKey,
+    /// Optional human-readable description of what the hotkey does.
+    pub description: Option<String>,
+}
+
+impl From<HotKey> for DescribedHotKey {
+    fn from(hotkey: HotKey) -> Self {
+        Self {
+            hotkey,
+            description: None,
+        }
+    }
+}
+
+impl From<&HotKey> for DescribedHotKey {
+    fn from(hotkey: &HotKey) -> Self {
+        (*hotkey).into()
     }
 }
 
@@ -574,4 +611,18 @@ fn test_equality() {
             && h4.id() == h5.id()
             && h5.id() != h6.id()
     );
+}
+
+#[test]
+fn test_described_hotkey() {
+    let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyR);
+
+    let plain: DescribedHotKey = hotkey.into();
+    assert_eq!(plain.hotkey, hotkey);
+    assert_eq!(plain.description, None);
+
+    let described = hotkey.with_description("Do the thing");
+    assert_eq!(described.hotkey, hotkey);
+    assert_eq!(described.description.as_deref(), Some("Do the thing"));
+    assert_eq!(described.hotkey.id(), hotkey.id());
 }
