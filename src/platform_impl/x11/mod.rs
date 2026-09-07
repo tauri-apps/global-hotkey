@@ -8,7 +8,10 @@ use crossbeam_channel::{unbounded, Receiver, Sender};
 use keyboard_types::{Code, Modifiers};
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
-use x11rb::protocol::xproto::{ConnectionExt, GrabMode, KeyButMask, Keycode, ModMask, Window};
+use x11rb::protocol::xinput::{self, ConnectionExt as _};
+use x11rb::protocol::xproto::{
+    ConnectionExt, GrabMode, GrabStatus, KeyButMask, Keycode, ModMask, Window,
+};
 use x11rb::protocol::{xkb, ErrorKind, Event};
 use x11rb::rust_connection::RustConnection;
 use xkeysym::RawKeysym;
@@ -224,6 +227,130 @@ struct HotKeyState {
     mods: ModMask,
 }
 
+/// Whether another client currently holds an active keyboard grab.
+///
+/// There is no way to ask the server directly, so this attempts the grab
+/// itself: `AlreadyGrabbed` means somebody else has it. A successful grab is
+/// released immediately and is not observable by other clients.
+fn keyboard_grabbed(conn: &RustConnection, root: Window) -> bool {
+    let Ok(cookie) = conn.grab_keyboard(
+        false,
+        root,
+        x11rb::CURRENT_TIME,
+        GrabMode::ASYNC,
+        GrabMode::ASYNC,
+    ) else {
+        return false;
+    };
+
+    let Ok(reply) = cookie.reply() else {
+        return false;
+    };
+
+    if reply.status == GrabStatus::ALREADY_GRABBED {
+        return true;
+    }
+
+    if let Ok(cookie) = conn.ungrab_keyboard(x11rb::CURRENT_TIME) {
+        cookie.ignore_error();
+    }
+    let _ = conn.flush();
+
+    false
+}
+
+/// Modifier state reconstructed from the raw key stream.
+///
+/// Raw events carry no modifier state, and querying it separately races the
+/// key release, so presses and releases are tracked as they arrive.
+#[derive(Default)]
+struct RawModifiers {
+    ctrl: bool,
+    shift: bool,
+    alt: bool,
+    meta: bool,
+}
+
+impl RawModifiers {
+    fn update(&mut self, keysym: RawKeysym, pressed: bool) {
+        match keysym {
+            xkeysym::key::Control_L | xkeysym::key::Control_R => self.ctrl = pressed,
+            xkeysym::key::Shift_L | xkeysym::key::Shift_R => self.shift = pressed,
+            xkeysym::key::Alt_L | xkeysym::key::Alt_R | xkeysym::key::ISO_Level3_Shift => {
+                self.alt = pressed
+            }
+            xkeysym::key::Super_L | xkeysym::key::Super_R => self.meta = pressed,
+            _ => {}
+        }
+    }
+
+    fn as_mod_mask(&self) -> ModMask {
+        let mut mask = ModMask::default();
+        if self.ctrl {
+            mask |= ModMask::CONTROL;
+        }
+        if self.shift {
+            mask |= ModMask::SHIFT;
+        }
+        if self.alt {
+            mask |= ModMask::M1;
+        }
+        if self.meta {
+            mask |= ModMask::M4;
+        }
+        mask
+    }
+}
+
+/// Ask the server for raw key events on the root window. Returns false when
+/// XInput2 is unavailable, leaving only the core grabs in place.
+fn select_raw_key_events(conn: &RustConnection, root: Window) -> bool {
+    if conn.xinput_xi_query_version(2, 2).is_err() {
+        return false;
+    }
+
+    let mask = xinput::XIEventMask::RAW_KEY_PRESS | xinput::XIEventMask::RAW_KEY_RELEASE;
+    conn.xinput_xi_select_events(
+        root,
+        &[xinput::EventMask {
+            deviceid: xinput::Device::ALL_MASTER.into(),
+            mask: vec![mask],
+        }],
+    )
+    .is_ok()
+        && conn.flush().is_ok()
+}
+
+/// First keysym per keycode, used to resolve modifier keys from raw events.
+fn keycode_keysym_map(conn: &RustConnection) -> BTreeMap<Keycode, RawKeysym> {
+    let setup = conn.setup();
+    let min = setup.min_keycode;
+    let count = setup.max_keycode - min + 1;
+
+    let Ok(reply) = conn
+        .get_keyboard_mapping(min, count)
+        .map_err(|_| ())
+        .and_then(|cookie| cookie.reply().map_err(|_| ()))
+    else {
+        return BTreeMap::new();
+    };
+
+    let per = reply.keysyms_per_keycode as usize;
+    if per == 0 {
+        return BTreeMap::new();
+    }
+
+    reply
+        .keysyms
+        .chunks(per)
+        .enumerate()
+        .filter_map(|(i, chunk)| {
+            let keysym = *chunk.first()?;
+            (keysym != 0).then(|| (min + i as Keycode, keysym))
+        })
+        .collect()
+}
+
 fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
     let mut hotkeys = BTreeMap::<Keycode, Vec<HotKeyState>>::new();
 
@@ -253,6 +380,10 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
     // X11 sends masks for Lock keys as well, and we only care about the 4 below
     let full_mask = KeyButMask::CONTROL | KeyButMask::SHIFT | KeyButMask::MOD4 | KeyButMask::MOD1;
 
+    let raw_events = select_raw_key_events(&conn, root);
+    let mut raw_mods = RawModifiers::default();
+    let keysym_cache = keycode_keysym_map(&conn);
+
     loop {
         while let Ok(Some(event)) = conn.poll_for_event() {
             match event {
@@ -277,6 +408,54 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
                 Event::KeyRelease(event) => {
                     let keycode = event.detail;
 
+                    if let Some(entry) = hotkeys.get_mut(&keycode) {
+                        for state in entry {
+                            if state.pressed {
+                                GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                                    id: state.id,
+                                    state: crate::HotKeyState::Released,
+                                });
+                                state.pressed = false;
+                            }
+                        }
+                    }
+                }
+                Event::XinputRawKeyPress(event) if raw_events => {
+                    let keycode = event.detail as Keycode;
+                    if let Some(&keysym) = keysym_cache.get(&keycode) {
+                        raw_mods.update(keysym, true);
+                    }
+
+                    // Modifier state has to be tracked continuously, but the
+                    // hotkey itself is only reported when the passive grab
+                    // cannot fire. Otherwise the key would be delivered twice,
+                    // and raw events do not consume it the way a grab does.
+                    if !keyboard_grabbed(&conn, root) {
+                        continue;
+                    }
+
+                    let event_mods = raw_mods.as_mod_mask();
+                    if let Some(entry) = hotkeys.get_mut(&keycode) {
+                        for state in entry {
+                            if event_mods == state.mods && !state.pressed {
+                                GlobalHotKeyEvent::send(GlobalHotKeyEvent {
+                                    id: state.id,
+                                    state: crate::HotKeyState::Pressed,
+                                });
+                                state.pressed = true;
+                            }
+                        }
+                    }
+                }
+                Event::XinputRawKeyRelease(event) if raw_events => {
+                    let keycode = event.detail as Keycode;
+                    if let Some(&keysym) = keysym_cache.get(&keycode) {
+                        raw_mods.update(keysym, false);
+                    }
+
+                    // Deliberately not gated on the grab: this only closes out
+                    // a press the raw path already reported, and the grab may
+                    // have been released in between.
                     if let Some(entry) = hotkeys.get_mut(&keycode) {
                         for state in entry {
                             if state.pressed {
