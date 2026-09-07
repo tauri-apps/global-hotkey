@@ -299,23 +299,40 @@ fn events_processor(thread_rx: Receiver<ThreadMessage>) -> Result<(), String> {
                     let _ = tx.send(register_hotkey(&conn, root, &mut hotkeys, hotkey));
                 }
                 ThreadMessage::RegisterHotKeys(keys, tx) => {
+                    let mut result = Ok(());
+                    let mut registered = Vec::new();
                     for hotkey in keys {
-                        if let Err(e) = register_hotkey(&conn, root, &mut hotkeys, hotkey) {
-                            let _ = tx.send(Err(e));
+                        match register_hotkey(&conn, root, &mut hotkeys, hotkey) {
+                            Ok(()) => registered.push(hotkey),
+                            Err(e) => {
+                                result = Err(e);
+                                break;
+                            }
                         }
                     }
-                    let _ = tx.send(Ok(()));
+                    // Roll back on failure so register_all is atomic instead of
+                    // leaving an unknown subset of hotkeys grabbed.
+                    if result.is_err() {
+                        for hotkey in registered {
+                            let _ = unregister_hotkey(&conn, root, &mut hotkeys, hotkey);
+                        }
+                    }
+                    let _ = tx.send(result);
                 }
                 ThreadMessage::UnRegisterHotKey(hotkey, tx) => {
                     let _ = tx.send(unregister_hotkey(&conn, root, &mut hotkeys, hotkey));
                 }
                 ThreadMessage::UnRegisterHotKeys(keys, tx) => {
+                    // Best effort: unregister everything, report the first error.
+                    let mut result = Ok(());
                     for hotkey in keys {
                         if let Err(e) = unregister_hotkey(&conn, root, &mut hotkeys, hotkey) {
-                            let _ = tx.send(Err(e));
+                            if result.is_ok() {
+                                result = Err(e);
+                            }
                         }
                     }
-                    let _ = tx.send(Ok(()));
+                    let _ = tx.send(result);
                 }
                 ThreadMessage::DropThread => {
                     return Ok(());
