@@ -376,7 +376,7 @@ fn keycode_to_x11_keysym(key: Code) -> Option<RawKeysym> {
         Code::Equal => xkeysym::key::equal,
         Code::Minus => xkeysym::key::minus,
         Code::Period => xkeysym::key::period,
-        Code::Quote => xkeysym::key::leftsinglequotemark,
+        Code::Quote => xkeysym::key::apostrophe,
         Code::Semicolon => xkeysym::key::semicolon,
         Code::Slash => xkeysym::key::slash,
         Code::Backspace => xkeysym::key::BackSpace,
@@ -532,4 +532,12 @@ fn keysym_to_keycode(conn: &RustConnection, keysym: RawKeysym) -> Result<Option<
     }
 
     Ok(None)
+}
+
+#[test]
+fn test_quote_maps_to_apostrophe_keysym() {
+    assert_eq!(
+        keycode_to_x11_keysym(Code::Quote),
+        Some(xkeysym::key::apostrophe)
+    );
 }
