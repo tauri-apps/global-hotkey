@@ -1,5 +1,5 @@
 ---
-"global-hotkey": major
+"global-hotkey": minor
 ---
 
-Align `Error` with the public `HotKeyParseError` type and remove obsolete hotkey parse error variants.
+Remove unused `UnrecognizedHotKeyCode`, `EmptyHotKeyToken` and `UnexpectedHotKeyFormat` variants from `Error` enum. Same info can be found in `HotKeyParseError`
