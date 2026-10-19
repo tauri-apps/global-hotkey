@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::hotkey::HotKey;
+use crate::hotkey::{DescribedHotKey, HotKey};
 
 pub struct GlobalHotKeyManager {}
 
@@ -14,7 +14,7 @@ impl GlobalHotKeyManager {
         Ok(Self {})
     }
 
-    pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
+    pub fn register(&self, hotkey: DescribedHotKey) -> crate::Result<()> {
         Ok(())
     }
 
@@ -22,9 +22,9 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+    pub fn register_all(&self, hotkeys: Vec<DescribedHotKey>) -> crate::Result<()> {
         for hotkey in hotkeys {
-            self.register(*hotkey)?;
+            self.register(hotkey)?;
         }
         Ok(())
     }
@@ -34,5 +34,9 @@ impl GlobalHotKeyManager {
             self.unregister(*hotkey)?;
         }
         Ok(())
+    }
+
+    pub fn trigger_description(&self, hotkey: HotKey) -> crate::Result<String> {
+        Ok(hotkey.into_string())
     }
 }
