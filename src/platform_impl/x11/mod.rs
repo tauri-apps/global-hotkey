@@ -419,6 +419,8 @@ fn keycode_to_x11_keysym(key: Code) -> Option<RawKeysym> {
         Code::NumpadComma => xkeysym::key::KP_Separator,
         Code::NumpadDecimal => xkeysym::key::KP_Decimal,
         Code::NumpadDivide => xkeysym::key::KP_Divide,
+        Code::NumpadEnter => xkeysym::key::KP_Enter,
+        Code::NumpadEqual => xkeysym::key::KP_Equal,
         Code::NumpadMultiply => xkeysym::key::KP_Multiply,
         Code::NumpadSubtract => xkeysym::key::KP_Subtract,
         Code::Escape => xkeysym::key::Escape,
