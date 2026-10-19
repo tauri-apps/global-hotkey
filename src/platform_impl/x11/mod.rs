@@ -376,7 +376,7 @@ fn keycode_to_x11_keysym(key: Code) -> Option<RawKeysym> {
         Code::Equal => xkeysym::key::equal,
         Code::Minus => xkeysym::key::minus,
         Code::Period => xkeysym::key::period,
-        Code::Quote => xkeysym::key::leftsinglequotemark,
+        Code::Quote => xkeysym::key::apostrophe,
         Code::Semicolon => xkeysym::key::semicolon,
         Code::Slash => xkeysym::key::slash,
         Code::Backspace => xkeysym::key::BackSpace,
