@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.0]
+
+- [`956eaba`](https://www.github.com/tauri-apps/global-hotkey/commit/956eaba12f32dd53d9793038e025664efc6b905e) ([#218](https://www.github.com/tauri-apps/global-hotkey/pull/218) by [@sb123sb123](https://www.github.com/tauri-apps/global-hotkey/../../sb123sb123)) Remove unused `UnrecognizedHotKeyCode`, `EmptyHotKeyToken` and `UnexpectedHotKeyFormat` variants from `Error` enum. Same info can be found in `HotKeyParseError`
+- [`c0ee632`](https://www.github.com/tauri-apps/global-hotkey/commit/c0ee632d8dd4725f2c299cb010453590baa6ecec) ([#217](https://www.github.com/tauri-apps/global-hotkey/pull/217) by [@sachintha-lk](https://www.github.com/tauri-apps/global-hotkey/../../sachintha-lk)) On X11, fix `NumpadEnter` and `NumpadEqual` hotkey registration by adding their missing keypad mappings.
+- [`2b0c019`](https://www.github.com/tauri-apps/global-hotkey/commit/2b0c019852efcdba124b4523e8143716b28995ad) ([#227](https://www.github.com/tauri-apps/global-hotkey/pull/227) by [@RaphaelFakhri](https://www.github.com/tauri-apps/global-hotkey/../../RaphaelFakhri)) On Linux (X11), fix registering `Code::Quote` by mapping it to `apostrophe` keysym instead of `leftsinglequotemark`.
+
 ## [0.9.0]
 
 - [`b5329b9`](https://www.github.com/tauri-apps/global-hotkey/commit/b5329b94812d2efaa59c0f58ece9e27e51671ecc) ([#210](https://www.github.com/tauri-apps/global-hotkey/pull/210)) Upgrade `keyboard-types` to 0.8 and use `META` as the primary variant for the Super modifier.
