@@ -16,27 +16,19 @@ use crate::{
         CGEventTapEnable, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
         CGEventTapProxy, CGEventType,
     },
-    CGEventMaskBit, GlobalHotKeyEvent, RegisterOptions,
+    CGEventMaskBit, GlobalHotKeyEvent,
 };
 
 use self::ffi::{
-    eventHotKeyExistsErr, kEventClassKeyboard, kEventHotKeyExclusive, kEventHotKeyNoOptions,
-    kEventHotKeyPressed, kEventHotKeyReleased, kEventParamDirectObject, noErr, typeEventHotKeyID,
-    CFMachPortInvalidate, CFMachPortRef, CFRelease, CFRunLoopRemoveSource, CFRunLoopSourceRef,
-    EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef, EventRef, EventTypeSpec,
+    eventHotKeyExistsErr, kEventClassKeyboard, kEventHotKeyExclusive, kEventHotKeyPressed,
+    kEventHotKeyReleased, kEventParamDirectObject, noErr, typeEventHotKeyID, CFMachPortInvalidate,
+    CFMachPortRef, CFRelease, CFRunLoopRemoveSource, CFRunLoopSourceRef, EventHandlerCallRef,
+    EventHandlerRef, EventHotKeyID, EventHotKeyRef, EventRef, EventTypeSpec,
     GetApplicationEventTarget, GetEventKind, GetEventParameter, InstallEventHandler, OSStatus,
-    OptionBits, RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
+    RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
 };
 
 mod ffi;
-
-fn event_hotkey_options(options: RegisterOptions) -> OptionBits {
-    if options.exclusive {
-        kEventHotKeyExclusive
-    } else {
-        kEventHotKeyNoOptions
-    }
-}
 
 fn check_register_status(status: OSStatus, hotkey: HotKey) -> crate::Result<()> {
     match status {
@@ -101,14 +93,6 @@ impl GlobalHotKeyManager {
     }
 
     pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
-        self.register_with_options(hotkey, RegisterOptions::default())
-    }
-
-    pub fn register_with_options(
-        &self,
-        hotkey: HotKey,
-        options: RegisterOptions,
-    ) -> crate::Result<()> {
         let mut mods: u32 = 0;
         if hotkey.mods.contains(Modifiers::SHIFT) {
             mods |= 512;
@@ -147,7 +131,9 @@ impl GlobalHotKeyManager {
                     mods,
                     hotkey_id,
                     GetApplicationEventTarget(),
-                    event_hotkey_options(options),
+                    // Without this flag the call succeeds even while another app holds the
+                    // hotkey exclusively, and the hotkey then never fires.
+                    kEventHotKeyExclusive,
                     &mut hotkey_ref,
                 );
 
@@ -568,20 +554,6 @@ mod tests {
 
     fn hotkey() -> HotKey {
         HotKey::new(None, Code::KeyD)
-    }
-
-    #[test]
-    fn default_options_register_shared() {
-        assert_eq!(
-            event_hotkey_options(RegisterOptions::default()),
-            kEventHotKeyNoOptions
-        );
-    }
-
-    #[test]
-    fn exclusive_option_sets_the_exclusive_flag() {
-        let options = RegisterOptions::new().exclusive(true);
-        assert_eq!(event_hotkey_options(options), kEventHotKeyExclusive);
     }
 
     #[test]

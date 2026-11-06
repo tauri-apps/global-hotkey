@@ -17,7 +17,7 @@ use windows_sys::Win32::{
     },
 };
 
-use crate::{hotkey::HotKey, GlobalHotKeyEvent, RegisterOptions};
+use crate::{hotkey::HotKey, GlobalHotKeyEvent};
 
 pub struct GlobalHotKeyManager {
     hwnd: HWND,
@@ -120,14 +120,6 @@ impl GlobalHotKeyManager {
         }
 
         Ok(())
-    }
-
-    pub fn register_with_options(
-        &self,
-        hotkey: HotKey,
-        _options: RegisterOptions,
-    ) -> crate::Result<()> {
-        self.register(hotkey)
     }
 
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {

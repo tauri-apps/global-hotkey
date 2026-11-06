@@ -16,7 +16,6 @@
 //!
 //! - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 //! - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
-//! - On macOS, a hotkey registered with [`GlobalHotKeyManager::register`] succeeds even when another app holds it exclusively, and then doesn't fire while that app holds it. Use [`GlobalHotKeyManager::register_with_options`] with [`RegisterOptions::exclusive`] to get [`Error::AlreadyRegistered`] instead. The catch is that other apps can no longer receive that hotkey. Windows and X11 always refuse a hotkey that is already taken, so the option has no effect there.
 //!
 //! # Example
 //!
@@ -133,48 +132,6 @@ impl GlobalHotKeyEvent {
     }
 }
 
-/// Options for [`GlobalHotKeyManager::register_with_options`].
-///
-/// ```
-/// use global_hotkey::RegisterOptions;
-///
-/// let options = RegisterOptions::new().exclusive(true);
-/// assert!(options.exclusive);
-/// ```
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct RegisterOptions {
-    /// Claim the hotkey for this process alone.
-    ///
-    /// Defaults to `false`, which is how [`GlobalHotKeyManager::register`] behaves.
-    ///
-    /// ## Platform-specific
-    ///
-    /// - **macOS:** registers with `kEventHotKeyExclusive`. If another process already holds the
-    ///   hotkey exclusively, registering fails with [`Error::AlreadyRegistered`]. Without this
-    ///   option the registration succeeds even then, but this process doesn't receive the hotkey
-    ///   until the exclusive holder releases it.
-    ///   The trade-off is that an exclusive registration also stops every non-exclusive
-    ///   registration of the same hotkey, in any process, from receiving events.
-    ///   Media keys are not registered with Carbon, so this has no effect on them.
-    /// - **Windows / X11:** no effect. The hotkey is always claimed exclusively, and registering
-    ///   one that is already taken fails with [`Error::AlreadyRegistered`].
-    pub exclusive: bool,
-}
-
-impl RegisterOptions {
-    /// Creates the default options, which are not exclusive.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets [`RegisterOptions::exclusive`].
-    pub fn exclusive(mut self, exclusive: bool) -> Self {
-        self.exclusive = exclusive;
-        self
-    }
-}
-
 pub struct GlobalHotKeyManager {
     platform_impl: platform_impl::GlobalHotKeyManager,
 }
@@ -190,31 +147,6 @@ impl GlobalHotKeyManager {
         self.platform_impl.register(hotkey)
     }
 
-    /// Registers `hotkey` with the given [`RegisterOptions`].
-    ///
-    /// [`GlobalHotKeyManager::register`] is the same as passing [`RegisterOptions::default`].
-    ///
-    /// Returns [`Error::AlreadyRegistered`] when the hotkey is taken. Which registrations count
-    /// as taken depends on the platform, see [`RegisterOptions::exclusive`].
-    ///
-    /// ```no_run
-    /// use global_hotkey::{GlobalHotKeyManager, RegisterOptions, hotkey::{HotKey, Modifiers, Code}};
-    ///
-    /// let manager = GlobalHotKeyManager::new().unwrap();
-    /// let hotkey = HotKey::new(Some(Modifiers::SHIFT), Code::KeyD);
-    ///
-    /// manager
-    ///     .register_with_options(hotkey, RegisterOptions::new().exclusive(true))
-    ///     .unwrap();
-    /// ```
-    pub fn register_with_options(
-        &self,
-        hotkey: HotKey,
-        options: RegisterOptions,
-    ) -> crate::Result<()> {
-        self.platform_impl.register_with_options(hotkey, options)
-    }
-
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {
         self.platform_impl.unregister(hotkey)
     }
@@ -227,27 +159,5 @@ impl GlobalHotKeyManager {
     pub fn unregister_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
         self.platform_impl.unregister_all(hotkeys)?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn register_options_default_to_not_exclusive() {
-        assert!(!RegisterOptions::default().exclusive);
-        assert_eq!(RegisterOptions::new(), RegisterOptions::default());
-    }
-
-    #[test]
-    fn register_options_builder_sets_exclusive() {
-        assert!(RegisterOptions::new().exclusive(true).exclusive);
-        assert!(
-            !RegisterOptions::new()
-                .exclusive(true)
-                .exclusive(false)
-                .exclusive
-        );
     }
 }

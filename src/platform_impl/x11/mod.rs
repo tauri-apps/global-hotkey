@@ -13,7 +13,7 @@ use x11rb::protocol::{xkb, ErrorKind, Event};
 use x11rb::rust_connection::RustConnection;
 use xkeysym::RawKeysym;
 
-use crate::{hotkey::HotKey, Error, GlobalHotKeyEvent, RegisterOptions};
+use crate::{hotkey::HotKey, Error, GlobalHotKeyEvent};
 
 enum ThreadMessage {
     RegisterHotKey(HotKey, Sender<crate::Result<()>>),
@@ -50,14 +50,6 @@ impl GlobalHotKeyManager {
         }
 
         Ok(())
-    }
-
-    pub fn register_with_options(
-        &self,
-        hotkey: HotKey,
-        _options: RegisterOptions,
-    ) -> crate::Result<()> {
-        self.register(hotkey)
     }
 
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {

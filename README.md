@@ -10,7 +10,6 @@ global_hotkey lets you register Global HotKeys for Desktop Applications.
 
 - On Windows a win32 event loop must be running on the thread. It doesn't need to be the main thread but you have to create the global hotkey manager on the same thread as the event loop.
 - On macOS, an event loop must be running on the main thread so you also need to create the global hotkey manager on the main thread.
-- On macOS, a hotkey registered with `GlobalHotKeyManager::register` succeeds even when another app holds it exclusively, and then doesn't fire while that app holds it. Use `GlobalHotKeyManager::register_with_options` with `RegisterOptions::exclusive` to get `Error::AlreadyRegistered` instead. The catch is that other apps can no longer receive that hotkey. Windows and X11 always refuse a hotkey that is already taken, so the option has no effect there.
 
 ## Example
 

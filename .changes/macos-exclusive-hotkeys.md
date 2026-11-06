@@ -1,5 +1,5 @@
 ---
-"global-hotkey": minor
+"global-hotkey": patch
 ---
 
-Add `GlobalHotKeyManager::register_with_options` and `RegisterOptions`. On macOS, `RegisterOptions::exclusive` registers the hotkey with `kEventHotKeyExclusive`, so a hotkey that another app already holds exclusively is refused instead of silently never firing. This has no effect on Windows and X11, where a taken hotkey is always refused. On macOS, registering a hotkey that is already taken (including one this process already registered) now returns `Error::AlreadyRegistered` instead of `Error::FailedToRegister`, matching Windows and X11.
+On macOS, register hotkeys exclusively, matching Windows and X11. Registering a hotkey that another app already holds exclusively now fails with `Error::AlreadyRegistered` instead of succeeding and never firing, and registering a hotkey that is already taken (including one this process already registered) returns `Error::AlreadyRegistered` instead of `Error::FailedToRegister`.

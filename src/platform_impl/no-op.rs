@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: MIT
 
-use crate::{hotkey::HotKey, RegisterOptions};
+use crate::hotkey::HotKey;
 
 pub struct GlobalHotKeyManager {}
 
@@ -16,14 +16,6 @@ impl GlobalHotKeyManager {
 
     pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
         Ok(())
-    }
-
-    pub fn register_with_options(
-        &self,
-        hotkey: HotKey,
-        _options: RegisterOptions,
-    ) -> crate::Result<()> {
-        self.register(hotkey)
     }
 
     pub fn unregister(&self, hotkey: HotKey) -> crate::Result<()> {
