@@ -17,7 +17,10 @@ use windows_sys::Win32::{
     },
 };
 
-use crate::{hotkey::HotKey, GlobalHotKeyEvent};
+use crate::{
+    hotkey::{DescribedHotKey, HotKey},
+    GlobalHotKeyEvent,
+};
 
 pub struct GlobalHotKeyManager {
     hwnd: HWND,
@@ -74,7 +77,9 @@ impl GlobalHotKeyManager {
         }
     }
 
-    pub fn register(&self, hotkey: HotKey) -> crate::Result<()> {
+    pub fn register(&self, hotkey: DescribedHotKey) -> crate::Result<()> {
+        // Descriptions are only used by the Wayland portal backend.
+        let hotkey = hotkey.hotkey;
         let mut mods = MOD_NOREPEAT;
         if hotkey.mods.contains(Modifiers::SHIFT) {
             mods |= MOD_SHIFT;
@@ -130,9 +135,9 @@ impl GlobalHotKeyManager {
         Ok(())
     }
 
-    pub fn register_all(&self, hotkeys: &[HotKey]) -> crate::Result<()> {
+    pub fn register_all(&self, hotkeys: Vec<DescribedHotKey>) -> crate::Result<()> {
         for hotkey in hotkeys {
-            self.register(*hotkey)?;
+            self.register(hotkey)?;
         }
         Ok(())
     }
@@ -142,6 +147,11 @@ impl GlobalHotKeyManager {
             self.unregister(*hotkey)?;
         }
         Ok(())
+    }
+
+    pub fn trigger_description(&self, hotkey: HotKey) -> crate::Result<String> {
+        // The binding always matches the request on Windows.
+        Ok(hotkey.into_string())
     }
 }
 unsafe extern "system" fn global_hotkey_proc(
