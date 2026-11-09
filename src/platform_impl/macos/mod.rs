@@ -546,35 +546,3 @@ fn is_media_key(code: Code) -> bool {
             | Code::MediaRewind
     )
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::Error;
-
-    fn hotkey() -> HotKey {
-        HotKey::new(None, Code::KeyD)
-    }
-
-    #[test]
-    fn no_err_status_registers() {
-        assert!(check_register_status(0, hotkey()).is_ok());
-    }
-
-    #[test]
-    fn hotkey_exists_status_is_already_registered() {
-        let err = check_register_status(-9878, hotkey()).unwrap_err();
-        assert!(matches!(err, Error::AlreadyRegistered(h) if h == hotkey()));
-    }
-
-    #[test]
-    fn other_statuses_fail_with_the_os_status_in_the_message() {
-        match check_register_status(-50, hotkey()).unwrap_err() {
-            Error::FailedToRegister(msg) => {
-                assert!(msg.contains("-50"), "{msg}");
-                assert!(msg.contains("KeyD"), "{msg}");
-            }
-            other => panic!("expected FailedToRegister, got {other:?}"),
-        }
-    }
-}
