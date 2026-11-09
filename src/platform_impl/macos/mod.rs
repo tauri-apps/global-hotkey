@@ -30,17 +30,6 @@ use self::ffi::{
 
 mod ffi;
 
-fn check_register_status(status: OSStatus, hotkey: HotKey) -> crate::Result<()> {
-    match status {
-        s if s == noErr as OSStatus => Ok(()),
-        s if s == eventHotKeyExistsErr => Err(crate::Error::AlreadyRegistered(hotkey)),
-        status => Err(crate::Error::FailedToRegister(format!(
-            "RegisterEventHotKey failed for {} (OSStatus {})",
-            hotkey.key, status
-        ))),
-    }
-}
-
 pub struct GlobalHotKeyManager {
     event_handler_ptr: EventHandlerRef,
     hotkeys: Mutex<BTreeMap<u32, HotKeyWrapper>>,
@@ -137,7 +126,15 @@ impl GlobalHotKeyManager {
                     &mut hotkey_ref,
                 );
 
-                check_register_status(result, hotkey)?;
+                if result == eventHotKeyExistsErr {
+                    return Err(crate::Error::AlreadyRegistered(hotkey));
+                }
+                if result != noErr as _ {
+                    return Err(crate::Error::FailedToRegister(format!(
+                        "RegisterEventHotKey failed for {} (OSStatus {})",
+                        hotkey.key, result
+                    )));
+                }
 
                 hotkey_ref
             };
