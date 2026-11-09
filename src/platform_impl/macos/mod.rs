@@ -20,11 +20,12 @@ use crate::{
 };
 
 use self::ffi::{
-    kEventClassKeyboard, kEventHotKeyPressed, kEventHotKeyReleased, kEventParamDirectObject, noErr,
-    typeEventHotKeyID, CFMachPortInvalidate, CFMachPortRef, CFRelease, CFRunLoopRemoveSource,
-    CFRunLoopSourceRef, EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef,
-    EventRef, EventTypeSpec, GetApplicationEventTarget, GetEventKind, GetEventParameter,
-    InstallEventHandler, OSStatus, RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
+    eventHotKeyExistsErr, kEventClassKeyboard, kEventHotKeyExclusive, kEventHotKeyPressed,
+    kEventHotKeyReleased, kEventParamDirectObject, noErr, typeEventHotKeyID, CFMachPortInvalidate,
+    CFMachPortRef, CFRelease, CFRunLoopRemoveSource, CFRunLoopSourceRef, EventHandlerCallRef,
+    EventHandlerRef, EventHotKeyID, EventHotKeyRef, EventRef, EventTypeSpec,
+    GetApplicationEventTarget, GetEventKind, GetEventParameter, InstallEventHandler, OSStatus,
+    RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
 };
 
 mod ffi;
@@ -119,14 +120,19 @@ impl GlobalHotKeyManager {
                     mods,
                     hotkey_id,
                     GetApplicationEventTarget(),
-                    0,
+                    // Without this flag the call succeeds even while another app holds the
+                    // hotkey exclusively, and the hotkey then never fires.
+                    kEventHotKeyExclusive,
                     &mut hotkey_ref,
                 );
 
+                if result == eventHotKeyExistsErr {
+                    return Err(crate::Error::AlreadyRegistered(hotkey));
+                }
                 if result != noErr as _ {
                     return Err(crate::Error::FailedToRegister(format!(
-                        "RegisterEventHotKey failed for {}",
-                        hotkey.key
+                        "RegisterEventHotKey failed for {} (OSStatus {})",
+                        hotkey.key, result
                     )));
                 }
 

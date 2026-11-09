@@ -72,6 +72,8 @@ pub type _bindgen_ty_1981 = ::std::os::raw::c_uint;
 pub const kEventHotKeyReleased: _bindgen_ty_1981 = 6;
 pub type _bindgen_ty_1 = ::std::os::raw::c_uint;
 pub const noErr: _bindgen_ty_1 = 0;
+pub const kEventHotKeyExclusive: OptionBits = 1 << 0;
+pub const eventHotKeyExistsErr: OSStatus = -9878;
 
 #[repr(C, packed(2))]
 #[derive(Debug, Copy, Clone)]
