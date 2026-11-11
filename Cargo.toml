@@ -31,7 +31,7 @@ objc2-app-kit = { version = "0.3.0", default-features = false, features = [
 ] }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows-sys]
-version = "0.59"
+version = "0.61"
 features = [
   "Win32_UI_WindowsAndMessaging",
   "Win32_Foundation",
