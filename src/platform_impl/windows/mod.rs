@@ -11,8 +11,7 @@ use windows_sys::Win32::{
         Input::KeyboardAndMouse::*,
         WindowsAndMessaging::{
             CreateWindowExW, DefWindowProcW, DestroyWindow, RegisterClassW, CW_USEDEFAULT,
-            WM_HOTKEY, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-            WS_EX_TRANSPARENT, WS_OVERLAPPED,
+            HWND_MESSAGE, WM_HOTKEY, WNDCLASSW,
         },
     },
 };
@@ -45,23 +44,17 @@ impl GlobalHotKeyManager {
             RegisterClassW(&wnd_class);
 
             let hwnd = CreateWindowExW(
-                WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_LAYERED |
-                // WS_EX_TOOLWINDOW prevents this window from ever showing up in the taskbar, which
-                // we want to avoid. If you remove this style, this window won't show up in the
-                // taskbar *initially*, but it can show up at some later point. This can sometimes
-                // happen on its own after several hours have passed, although this has proven
-                // difficult to reproduce. Alternatively, it can be manually triggered by killing
-                // `explorer.exe` and then starting the process back up.
-                // It is unclear why the bug is triggered by waiting for several hours.
-                WS_EX_TOOLWINDOW,
+                // not required for HWND_MESSAGE
+                0,
                 class_name.as_ptr(),
                 ptr::null(),
-                WS_OVERLAPPED,
-                CW_USEDEFAULT,
+                // not required for HWND_MESSAGE
                 0,
                 CW_USEDEFAULT,
                 0,
-                std::ptr::null_mut(),
+                CW_USEDEFAULT,
+                0,
+                HWND_MESSAGE,
                 std::ptr::null_mut(),
                 hinstance,
                 std::ptr::null_mut(),
